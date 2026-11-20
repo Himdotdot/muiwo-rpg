@@ -828,6 +828,10 @@ function fillRect(grid, x, y, w, h, val) {
  * - 南方（下方）：渡輪碼頭（起點）、海面波光與停泊的渡輪
  * - 東西兩側（左右）：巴士總站、單車租借店、熟食市場與海濱長廊樹林
  * - 北方邊緣（最上方道路盡頭）：設置通往第二張地圖的出口（前往 - 銀礦灣觀景台）
+ *
+ * 修復重點：
+ * - 渡輪碼頭建築碰撞箱改為右側較小範圍，中央碼頭甲板與主幹道完全可通行
+ * - 出生點改到明確可走的碼頭木棧道格子
  */
 function buildPierMap() {
     const terrain = createGrid(MAP_ROWS, MAP_COLS, 2); // 預設綠意草地
@@ -879,11 +883,12 @@ function buildPierMap() {
             id: 'pier_ferry_terminal',
             name: '梅窩渡輪碼頭',
             category: 'beach',
-            x: 25, y: 34, w: 10, h: 4,
+            // 移到碼頭右側，高度縮小，確保中央主幹道 (x≈27-32) 與出生點完全暢通
+            x: 31, y: 34, w: 5, h: 3,
             roofColor: '#2563eb',
             wallColor: '#f8fafc',
             trimColor: '#1d4ed8',
-            interactX: 29, interactY: 38,
+            interactX: 30, interactY: 37,
             type: 'pier'
         },
         {
@@ -959,7 +964,8 @@ function buildPierMap() {
     return {
         id: 'pier',
         name: '梅窩碼頭區',
-        spawn: { x: 29, y: 36, dir: 3 },
+        // 出生點改到明確可通行的碼頭木棧道（不在任何建築碰撞箱內）
+        spawn: { x: 29, y: 37, dir: 3 },
         terrain,
         buildings,
         props,
@@ -1125,11 +1131,11 @@ const state = {
     unlockedDex: new Set(),
     player: {
         gridX: 29,
-        gridY: 36,
+        gridY: 37,
         pixelX: 29 * TILE_SIZE,
-        pixelY: 36 * TILE_SIZE,
+        pixelY: 37 * TILE_SIZE,
         targetGridX: 29,
-        targetGridY: 36,
+        targetGridY: 37,
         dir: 3, // 0: 下, 1: 左, 2: 右, 3: 上
         walkFrame: 0,
         isMoving: false
