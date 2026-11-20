@@ -515,10 +515,10 @@ const ctx = canvas.getContext('2d');
 const portraitCanvas = document.getElementById('portraitCanvas');
 const pCtx = portraitCanvas.getContext('2d');
 
-// 梅窩海濱大世界：80 x 100 網格（依真實衛星圖濃縮）
-const MAP_COLS = 80;
-const MAP_ROWS = 100;
-const TILE_SIZE = 32;   // 從 48 縮小約 33%，畫面一次能看到更多梅窩風景
+// 多地圖分區系統：每張地圖固定 60×45（保留現有縮放、移動速度與全螢幕搖桿手感）
+const MAP_COLS = 60;
+const MAP_ROWS = 45;
+const TILE_SIZE = 32;
 
 // 地形代碼定義：
 // 0: 海水與波光, 1: 沙灘/觀景台海邊, 2: 草地, 3: 濕地高草叢(25%遇水牛), 4: 石板路/行人道,
@@ -843,228 +843,158 @@ function fillRect(grid, x, y, w, h, val) {
  * - 右上方市中心：離島民政事務處梅窩分處、郵政局、海濱公園、茶餐廳群
  * 整條海岸長廊從碼頭到市中心完全暢通
  */
-function buildMuiWoMap() {
+/**
+ * 建立地圖 1：梅窩碼頭區（對應紅框 1）
+ * 西邊大海 + 碼頭伸出、巴士總站、中國熊、家樂閣、The Kitchen、海愉花園、華記、鳳凰徑1段
+ * 北方出口 → 地圖 2
+ */
+function buildPierMap() {
     const terrain = createGrid(MAP_ROWS, MAP_COLS, 2); // 預設草地
 
-    // ========== 1. 大海與銀礦灣（右下方大片海域） ==========
-    fillRect(terrain, 52, 0, 28, 100, 0);          // 右側主海域
-    fillRect(terrain, 40, 85, 40, 15, 0);           // 碼頭南方延伸海面
-    fillRect(terrain, 45, 70, 35, 20, 0);           // 中部海岸外海
-    fillRect(terrain, 48, 30, 32, 25, 0);           // 市中心外海／避風塘
+    // ===== 1. 西邊大海（左側）+ 南邊海域 =====
+    fillRect(terrain, 0, 0, 14, 45, 0);           // 左側主海域
+    fillRect(terrain, 14, 32, 20, 13, 0);          // 碼頭南側延伸海面
+    fillRect(terrain, 34, 38, 26, 7, 0);           // 右下海岸外海
 
-    // 沙灘邊緣（地形1）
-    fillRect(terrain, 48, 82, 6, 10, 1);
-    fillRect(terrain, 46, 55, 5, 20, 1);
-    fillRect(terrain, 47, 25, 4, 15, 1);
+    // 沙灘邊緣
+    fillRect(terrain, 14, 30, 8, 4, 1);
+    fillRect(terrain, 30, 36, 12, 3, 1);
 
-    // ========== 2. 左下角：梅窩渡輪碼頭（突向海面） ==========
-    // 碼頭木棧道（地形7）
-    fillRect(terrain, 22, 88, 18, 8, 7);
-    fillRect(terrain, 26, 85, 10, 4, 7);            // 碼頭前端
-    // 碼頭廣場石板
-    fillRect(terrain, 20, 82, 22, 6, 4);
+    // ===== 2. 梅窩渡輪碼頭（左下突出海面）=====
+    fillRect(terrain, 8, 34, 16, 6, 7);            // 碼頭木棧道
+    fillRect(terrain, 12, 32, 10, 3, 7);           // 碼頭前端
+    fillRect(terrain, 10, 30, 18, 4, 4);           // 碼頭廣場石板
 
-    // ========== 3. 主要海岸長廊道路（從碼頭一路往北到市中心，完全暢通） ==========
-    // 主幹道（柏油路 地形8）+ 兩側行人道（地形4）
-    // 碼頭段 → 華記段
-    fillRect(terrain, 30, 70, 8, 18, 8);
-    fillRect(terrain, 29, 70, 1, 18, 4);
-    fillRect(terrain, 38, 70, 1, 18, 4);
+    // ===== 3. 主幹道（南北向）+ 行人道 =====
+    // 碼頭 → 巴士總站段
+    fillRect(terrain, 22, 22, 8, 12, 8);
+    fillRect(terrain, 21, 22, 1, 12, 4);
+    fillRect(terrain, 30, 22, 1, 12, 4);
 
-    // 華記 → 污水站／富瑤小築段
-    fillRect(terrain, 32, 45, 8, 26, 8);
-    fillRect(terrain, 31, 45, 1, 26, 4);
-    fillRect(terrain, 40, 45, 1, 26, 4);
+    // 巴士總站 → 北方出口段
+    fillRect(terrain, 24, 4, 8, 18, 8);
+    fillRect(terrain, 23, 4, 1, 18, 4);
+    fillRect(terrain, 32, 4, 1, 18, 4);
 
-    // 富瑤小築 → 市中心段
-    fillRect(terrain, 34, 18, 8, 28, 8);
-    fillRect(terrain, 33, 18, 1, 28, 4);
-    fillRect(terrain, 42, 18, 1, 28, 4);
+    // 下方彎路（鳳凰徑 1 段）
+    fillRect(terrain, 28, 28, 18, 4, 8);
+    fillRect(terrain, 28, 27, 18, 1, 4);
+    fillRect(terrain, 28, 32, 18, 1, 4);
+    fillRect(terrain, 42, 24, 4, 8, 8);            // 迴旋處
 
-    // 市中心東西向市政大道
-    fillRect(terrain, 20, 22, 30, 5, 8);
-    fillRect(terrain, 20, 21, 30, 1, 4);
-    fillRect(terrain, 20, 27, 30, 1, 4);
+    // 嶼南道（右側東邊）
+    fillRect(terrain, 48, 8, 4, 22, 8);
+    fillRect(terrain, 47, 8, 1, 22, 4);
+    fillRect(terrain, 52, 8, 1, 22, 4);
 
-    // 嶼南道（往左上延伸的山腳道路）
-    fillRect(terrain, 8, 55, 22, 4, 8);
-    fillRect(terrain, 8, 54, 22, 1, 4);
-    fillRect(terrain, 8, 59, 22, 1, 4);
-    fillRect(terrain, 5, 40, 4, 20, 8);             // 往北延伸
-
-    // ========== 4. 左側大型綠色山丘／樹林（鳳凰徑第1段山腳） ==========
-    fillRect(terrain, 0, 0, 18, 70, 2);             // 大片草地
-    fillRect(terrain, 0, 30, 12, 40, 3);            // 高草叢
-    // 山壁不可通行區
-    for (let r = 0; r < 55; r++) {
-        for (let c = 0; c < 6; c++) {
-            if (Math.random() > 0.3) terrain[r][c] = 5;        }
+    // ===== 4. 右側山林 =====
+    fillRect(terrain, 50, 0, 10, 30, 2);
+    fillRect(terrain, 52, 5, 8, 18, 3);
+    for (let r = 0; r < 28; r++) {
+        for (let c = 54; c < 60; c++) {
+            if (Math.random() > 0.4) terrain[r][c] = 5;
+        }
     }
 
-    // ========== 5. 市中心廣場與公園綠地 ==========
-    fillRect(terrain, 18, 12, 28, 10, 4);           // 市政廣場
-    fillRect(terrain, 22, 28, 18, 8, 2);            // 海濱公園草地
-    fillRect(terrain, 38, 30, 5, 4, 6);             // 公園小水景
-
-    // ========== 6. 建築陣列 ==========
+    // ===== 5. 建築 =====
     const buildings = [
-        // 左下角碼頭區
         {
             id: 'mui_wo_ferry_pier',
             name: '梅窩渡輪碼頭',
-            category: 'beach',
-            x: 28, y: 89, w: 8, h: 3,
-            roofColor: '#2563eb',
-            wallColor: '#f8fafc',
-            trimColor: '#1d4ed8',
-            interactX: 30, interactY: 87,
-            type: 'pier'
+            category: 'pier',
+            x: 14, y: 34, w: 10, h: 3,
+            roofColor: '#2563eb', wallColor: '#f8fafc', trimColor: '#1d4ed8',
+            interactX: 18, interactY: 33, type: 'pier'
         },
         {
             id: 'china_bear',
             name: '中國熊 China Bear',
+            category: 'china_bear',
+            x: 16, y: 26, w: 7, h: 3,
+            roofColor: '#b45309', wallColor: '#fef3c7', trimColor: '#92400e',
+            interactX: 18, interactY: 28, type: 'china_bear'
+        },
+        {
+            id: 'gallop_court',
+            name: '家樂閣 Gallop Court',
+            category: 'beach',
+            x: 26, y: 20, w: 8, h: 3,
+            roofColor: '#7c2d12', wallColor: '#fed7aa', trimColor: '#9a3412',
+            interactX: 28, interactY: 22, type: 'house'
+        },
+        {
+            id: 'the_kitchen',
+            name: 'The Kitchen',
             category: 'cafe',
-            x: 16, y: 83, w: 7, h: 3,
-            roofColor: '#b45309',
-            wallColor: '#fef3c7',
-            trimColor: '#92400e',
-            interactX: 18, interactY: 85,
-            type: 'china_bear'
+            x: 24, y: 10, w: 7, h: 3,
+            roofColor: '#dc2626', wallColor: '#fecaca', trimColor: '#991b1b',
+            interactX: 26, interactY: 12, type: 'cafe'
+        },
+        {
+            id: 'sea_crest',
+            name: '海愉花園 Sea Crest Terrace',
+            category: 'beach',
+            x: 22, y: 4, w: 9, h: 3,
+            roofColor: '#0f766e', wallColor: '#ccfbf1', trimColor: '#115e59',
+            interactX: 25, interactY: 6, type: 'house'
+        },
+        {
+            id: 'wah_kee',
+            name: '華記海鮮飯店',
+            category: 'wah_kee',
+            x: 38, y: 30, w: 8, h: 3,
+            roofColor: '#ea580c', wallColor: '#ffedd5', trimColor: '#c2410c',
+            interactX: 40, interactY: 32, type: 'restaurant'
         },
         {
             id: 'bus_terminus',
             name: '梅窩巴士總站',
-            category: 'beach',
-            x: 12, y: 78, w: 9, h: 3,
-            roofColor: '#0284c7',
-            wallColor: '#e2e8f0',
-            trimColor: '#0369a1',
-            interactX: 15, interactY: 80,
-            type: 'bus'
-        },
-        // 中下部海岸
-        {
-            id: 'wah_kee',
-            name: '華記海鮮飯店',
-            category: 'cafe',
-            x: 36, y: 68, w: 8, h: 3,
-            roofColor: '#dc2626',
-            wallColor: '#fef2f2',
-            trimColor: '#991b1b',
-            interactX: 38, interactY: 70,
-            type: 'wah_kee'
-        },
-        // 中央偏右
-        {
-            id: 'sewage_station',
-            name: '梅窩污水抽水站',
-            category: 'waterfall',
-            x: 42, y: 50, w: 6, h: 3,
-            roofColor: '#475569',
-            wallColor: '#cbd5e1',
-            trimColor: '#1e293b',
-            interactX: 43, interactY: 52,
-            type: 'sewage'
-        },
-        {
-            id: 'regent_villa',
-            name: '富瑤小築',
-            category: 'beach',
-            x: 40, y: 42, w: 8, h: 4,
-            roofColor: '#0d9488',
-            wallColor: '#ccfbf1',
-            trimColor: '#0f766e',
-            interactX: 42, interactY: 45,
-            type: 'regent_villa'
-        },
-        // 右上方市中心
-        {
-            id: 'isdo_mui_wo',
-            name: '離島民政事務處梅窩分處',
-            category: 'waterfall',
-            x: 22, y: 14, w: 11, h: 4,
-            roofColor: '#475569',
-            wallColor: '#f1f5f9',
-            trimColor: '#1e293b',
-            interactX: 26, interactY: 17,
-            type: 'isdo'
-        },
-        {
-            id: 'mui_wo_post_office',
-            name: '梅窩郵政局',
-            category: 'waterfall',
-            x: 36, y: 14, w: 8, h: 4,
-            roofColor: '#15803d',
-            wallColor: '#dcfce7',
-            trimColor: '#166534',
-            interactX: 39, interactY: 17,
-            type: 'post_office'
-        },
-        {
-            id: 'seaside_park',
-            name: '梅窩海濱公園',
-            category: 'waterfall',
-            x: 24, y: 30, w: 8, h: 3,
-            roofColor: '#0d9488',
-            wallColor: '#ccfbf1',
-            trimColor: '#0f766e',
-            interactX: 27, interactY: 32,
-            type: 'park'
-        },
-        {
-            id: 'cooked_food',
-            name: '梅窩熟食市場',
-            category: 'cafe',
-            x: 14, y: 24, w: 8, h: 3,
-            roofColor: '#dc2626',
-            wallColor: '#fef2f2',
-            trimColor: '#991b1b',
-            interactX: 17, interactY: 26,
-            type: 'cafe'
+            category: 'bus',
+            x: 18, y: 22, w: 8, h: 3,
+            roofColor: '#0284c7', wallColor: '#e0f2fe', trimColor: '#0369a1',
+            interactX: 20, interactY: 24, type: 'bus'
         }
     ];
 
-    // ========== 7. 場景裝飾 ==========
+    // ===== 6. 裝飾 Props =====
     const props = [
-        // 碼頭渡輪
-        { type: 'ferry', x: 30, y: 94 },
-        // 巴士站牌
-        { type: 'bus_stop', x: 22, y: 79 },
-        // 單車排（碼頭旁很常見）
-        { type: 'bikes', x: 20, y: 86 },
-        { type: 'bikes', x: 38, y: 86 },
-        // 華記附近欄杆
-        { type: 'railing', x: 44, y: 72 },
-        { type: 'railing', x: 48, y: 72 },
-        // 郵筒
-        { type: 'mailbox', x: 35, y: 17 },
-        // 海濱公園涼亭與長椅
-        { type: 'pavilion', x: 30, y: 31 },
-        { type: 'bench', x: 22, y: 33 },
-        { type: 'bench', x: 34, y: 33 },
-        // 大量樹木與棕櫚（左側山丘 + 海岸）
-        { type: 'palm', x: 46, y: 75 }, { type: 'palm', x: 48, y: 60 },
-        { type: 'palm', x: 45, y: 40 }, { type: 'palm', x: 47, y: 28 },
-        { type: 'tree', x: 8, y: 65 }, { type: 'tree', x: 12, y: 58 },
-        { type: 'tree', x: 6, y: 48 }, { type: 'tree', x: 10, y: 38 },
-        { type: 'tree', x: 15, y: 50 }, { type: 'tree', x: 18, y: 35 },
-        { type: 'tree', x: 25, y: 40 }, { type: 'tree', x: 28, y: 48 },
-        { type: 'tree', x: 20, y: 60 }, { type: 'tree', x: 35, y: 55 }
+        { type: 'ferry', x: 4, y: 36 },
+        { type: 'bus_stop', x: 20, y: 24 },
+        { type: 'mailbox', x: 30, y: 18 },
+        { type: 'railing', x: 14, y: 30 },
+        { type: 'railing', x: 16, y: 30 },
+        { type: 'bench', x: 20, y: 28 },
+        { type: 'palm', x: 36, y: 34 },
+        { type: 'palm', x: 42, y: 36 },
+        { type: 'tree', x: 48, y: 12 },
+        { type: 'tree', x: 50, y: 18 },
+        { type: 'tree', x: 52, y: 8 },
+        { type: 'bikes', x: 16, y: 20 }
     ];
 
-    // ========== 8. NPC（水牛） ==========
+    // ===== 7. NPC =====
     const npcs = [
-        { id: 'buffalo_hill', name: '山腳水牛', x: 14, y: 52, type: 'buffalo', dir: 0 },
-        { id: 'buffalo_park', name: '公園悠閒水牛', x: 28, y: 34, type: 'buffalo', dir: 0 }
+        { id: 'buffalo_pier', name: '碼頭附近水牛', x: 40, y: 18, type: 'buffalo', dir: 0 }
     ];
 
-    // 沒有跨地圖出口（整張就是大世界）
-    const exits = [];
+    // ===== 8. 北方出口 → 地圖 2 =====
+    const exits = [
+        {
+            id: 'to_plaza',
+            x: 23, y: 0, w: 10, h: 2,
+            dir: 3,                       // 向上推動觸發
+            label: '第2區：銀礦廣場與觀景台',
+            promptText: '前方是【第2區：銀礦廣場與觀景台】，要前往嗎？',
+            targetMap: 'plaza',
+            targetX: 28, targetY: 42,     // 地圖2南邊入口
+            targetDir: 3
+        }
+    ];
 
     return {
-        id: 'muiwo',
-        name: '梅窩海濱大世界',
-        spawn: { x: 30, y: 87, dir: 3 },   // 碼頭上岸處
+        id: 'pier',
+        name: '梅窩碼頭區',
+        spawn: { x: 18, y: 33, dir: 3 },  // 碼頭上出生
         terrain,
         buildings,
         props,
@@ -1073,26 +1003,170 @@ function buildMuiWoMap() {
     };
 }
 
-// 多地圖資料集合（現在只有一張大世界）
-const MAPS = {
-    muiwo: buildMuiWoMap()
-};
+/**
+ * 建立地圖 2：銀礦廣場與觀景台區（對應紅框 2）
+ * 南邊入口、橫向河道 + 橋、銀礦廣場、觀景台、銀礦灣泳灘起點、銀礦灣渡假酒店
+ * 北方出口 → 地圖 3（預留）
+ */
+function buildPlazaMap() {
+    const terrain = createGrid(MAP_ROWS, MAP_COLS, 2);
 
+    // ===== 1. 右側大海 + 泳灘 =====
+    fillRect(terrain, 42, 0, 18, 45, 0);           // 右側主海域
+    fillRect(terrain, 36, 28, 12, 10, 1);          // 銀礦灣泳灘金黃沙
+    fillRect(terrain, 38, 18, 8, 8, 1);            // 觀景台附近沙地
+
+    // ===== 2. 橫向河道（梅窩河）=====
+    fillRect(terrain, 8, 22, 40, 4, 0);            // 河道主體
+    // 小橋（中間）
+    fillRect(terrain, 26, 21, 6, 6, 4);            // 橋面石板
+
+    // ===== 3. 道路系統 =====
+    // 南邊入口道路（從地圖1進來）
+    fillRect(terrain, 24, 36, 10, 9, 8);
+    fillRect(terrain, 23, 36, 1, 9, 4);
+    fillRect(terrain, 34, 36, 1, 9, 4);
+
+    // 橋北 → 廣場主幹道
+    fillRect(terrain, 24, 8, 10, 14, 8);
+    fillRect(terrain, 23, 8, 1, 14, 4);
+    fillRect(terrain, 34, 8, 1, 14, 4);
+
+    // 東灣頭路（往觀景台）
+    fillRect(terrain, 34, 14, 10, 4, 8);
+    fillRect(terrain, 34, 13, 10, 1, 4);
+    fillRect(terrain, 34, 18, 10, 1, 4);
+
+    // 涌盛街（往酒店）
+    fillRect(terrain, 18, 4, 16, 4, 8);
+    fillRect(terrain, 18, 3, 16, 1, 4);
+    fillRect(terrain, 18, 8, 16, 1, 4);
+
+    // ===== 4. 左側市中心綠地 + 廣場 =====
+    fillRect(terrain, 8, 8, 16, 12, 4);            // 銀礦廣場石板
+    fillRect(terrain, 10, 10, 8, 6, 2);            // 休憩公園草地
+
+    // ===== 5. 建築 =====
+    const buildings = [
+        {
+            id: 'silver_plaza',
+            name: '銀礦廣場 Silver Plaza',
+            category: 'beach',
+            x: 10, y: 10, w: 12, h: 5,
+            roofColor: '#1e40af', wallColor: '#dbeafe', trimColor: '#1e3a8a',
+            interactX: 14, interactY: 14, type: 'mall'
+        },
+        {
+            id: 'viewing_deck',
+            name: '銀礦灣觀景台',
+            category: 'beach',
+            x: 36, y: 12, w: 6, h: 3,
+            roofColor: '#0d9488', wallColor: '#ccfbf1', trimColor: '#0f766e',
+            interactX: 38, interactY: 14, type: 'viewpoint'
+        },
+        {
+            id: 'silvermine_hotel',
+            name: '銀礦灣渡假酒店',
+            category: 'cafe',
+            x: 16, y: 2, w: 12, h: 3,
+            roofColor: '#7c3aed', wallColor: '#ede9fe', trimColor: '#5b21b6',
+            interactX: 20, interactY: 4, type: 'hotel'
+        },
+        {
+            id: 'sewage_station',
+            name: '梅窩污水抽水站',
+            category: 'sewage',
+            x: 32, y: 26, w: 5, h: 3,
+            roofColor: '#64748b', wallColor: '#e2e8f0', trimColor: '#475569',
+            interactX: 33, interactY: 28, type: 'utility'
+        },
+        {
+            id: 'water_dispenser',
+            name: '免費飲水機',
+            category: 'beach',
+            x: 12, y: 16, w: 3, h: 2,
+            roofColor: 'none', wallColor: '#94a3b8', trimColor: '#64748b',
+            interactX: 13, interactY: 17, type: 'utility'
+        }
+    ];
+
+    // ===== 6. Props =====
+    const props = [
+        { type: 'pavilion', x: 14, y: 18 },
+        { type: 'bench', x: 18, y: 16 },
+        { type: 'bench', x: 22, y: 16 },
+        { type: 'railing', x: 36, y: 20 },
+        { type: 'railing', x: 38, y: 20 },
+        { type: 'palm', x: 40, y: 24 },
+        { type: 'palm', x: 44, y: 30 },
+        { type: 'tree', x: 8, y: 6 },
+        { type: 'tree', x: 6, y: 12 },
+        { type: 'tree', x: 48, y: 8 }
+    ];
+
+    // ===== 7. NPC =====
+    const npcs = [
+        { id: 'buffalo_plaza', name: '廣場附近水牛', x: 20, y: 28, type: 'buffalo', dir: 0 }
+    ];
+
+    // ===== 8. 北方出口 → 地圖 3（預留）=====
+    const exits = [
+        {
+            id: 'to_beach',
+            x: 38, y: 0, w: 10, h: 2,
+            dir: 3,
+            label: '第3區：銀礦灣泳灘',
+            promptText: '前方是【第3區：銀礦灣泳灘區】，要前往嗎？（目前施工中）',
+            targetMap: 'beach',           // 尚未實作，會觸發施工提示
+            targetX: 30, targetY: 40,
+            targetDir: 3
+        },
+        // 南邊返回地圖1的出口（可選）
+        {
+            id: 'back_to_pier',
+            x: 24, y: 43, w: 10, h: 2,
+            dir: 0,                       // 向下推動
+            label: '返回第1區：梅窩碼頭',
+            promptText: '要返回【第1區：梅窩碼頭區】嗎？',
+            targetMap: 'pier',
+            targetX: 26, targetY: 2,
+            targetDir: 0
+        }
+    ];
+
+    return {
+        id: 'plaza',
+        name: '銀礦廣場與觀景台',
+        spawn: { x: 28, y: 42, dir: 3 },
+        terrain,
+        buildings,
+        props,
+        npcs,
+        exits
+    };
+}
+
+// 多地圖資料集合
+const MAPS = {
+    pier: buildPierMap(),
+    plaza: buildPlazaMap()
+    // beach: 預留（地圖3）
+};
 
 // 遊戲全域狀態
 const state = {
-    currentMapId: 'muiwo',
+    currentMapId: 'pier',
     hp: 100,
     maxHp: 100,
     money: 200,
     unlockedDex: new Set(),
     player: {
-        gridX: 30,
-        gridY: 87,
-        pixelX: 30 * TILE_SIZE,
-        pixelY: 87 * TILE_SIZE,
-        targetGridX: 30,
-        targetGridY: 87,
+        gridX: 18,
+        gridY: 33,
+        pixelX: 18 * TILE_SIZE,
+        pixelY: 33 * TILE_SIZE,
+        targetGridX: 18,
+        targetGridY: 33,
         dir: 3, // 0: 下, 1: 左, 2: 右, 3: 上
         walkFrame: 0,
         isMoving: false
