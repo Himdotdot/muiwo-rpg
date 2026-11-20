@@ -1,0 +1,2559 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>香港梅窩探索 RPG - Pokémon Black Style</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@500;700;900&display=swap');
+
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-touch-callout: none;
+        }
+
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #0b111e;
+            font-family: 'Noto Sans TC', sans-serif;
+            touch-action: none; /* 禁止瀏覽器雙擊縮放與畫面滑動 */
+        }
+
+        #game-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            image-rendering: pixelated;
+        }
+
+        /* 頂部《寶可夢 黑版》風格現代感半透明狀態列 */
+        #hud-top {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            right: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+            z-index: 20;
+            pointer-events: none;
+        }
+
+        .hud-panel {
+            background: linear-gradient(180deg, rgba(20, 26, 40, 0.88) 0%, rgba(10, 14, 24, 0.94) 100%);
+            border: 1.5px solid rgba(255, 255, 255, 0.75);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5), inset 0 0 8px rgba(100, 180, 255, 0.25);
+            border-radius: 14px;
+            padding: 6px 12px;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            pointer-events: auto;
+            backdrop-filter: blur(6px);
+        }
+
+        .location-badge {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-weight: 700;
+            font-size: 14px;
+            letter-spacing: 0.5px;
+            color: #7dd3fc;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+            white-space: nowrap;
+        }
+
+        .stats-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        .hp-bar-wrap {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .hp-track {
+            width: 56px;
+            height: 8px;
+            background: #1e293b;
+            border-radius: 4px;
+            border: 1px solid rgba(255,255,255,0.4);
+            overflow: hidden;
+        }
+
+        .hp-fill {
+            height: 100%;
+            width: 100%;
+            background: linear-gradient(90deg, #22c55e, #4ade80);
+            transition: width 0.3s ease, background 0.3s ease;
+        }
+
+        .money-text {
+            color: #fde047;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+        }
+
+        .dex-btn {
+            background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+            border: 1.5px solid #93c5fd;
+            color: #fff;
+            padding: 6px 12px;
+            border-radius: 12px;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 3px 10px rgba(37, 99, 235, 0.4);
+            transition: transform 0.1s;
+            pointer-events: auto;
+            white-space: nowrap;
+        }
+
+        .dex-btn:active {
+            transform: scale(0.94);
+        }
+
+        /* 飄浮數值提示 (+HP / -$HKD) */
+        #floating-toast {
+            position: absolute;
+            top: 64px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(15, 23, 42, 0.92);
+            border: 1px solid #38bdf8;
+            color: #f8fafc;
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 700;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s, transform 0.3s;
+            z-index: 25;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+            white-space: nowrap;
+        }
+
+        #floating-toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(4px);
+        }
+
+        /* 地圖轉場黑屏淡入淡出遮罩 */
+        #fade-overlay {
+            position: absolute;
+            inset: 0;
+            background-color: #050811;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.32s ease;
+            z-index: 60;
+        }
+
+        #fade-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        /* 《寶可夢 黑版》風格底部對話框 */
+        #dialogue-overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.35);
+            display: none;
+            flex-direction: column;
+            justify-content: flex-end;
+            align-items: center;
+            padding: 16px;
+            z-index: 40;
+            backdrop-filter: blur(2px);
+        }
+
+        #dialogue-overlay.active {
+            display: flex;
+        }
+
+        /* 遭遇立繪框 */
+        #portrait-box {
+            width: 132px;
+            height: 132px;
+            margin-bottom: -14px;
+            z-index: 42;
+            background: radial-gradient(circle, rgba(56,189,248,0.28) 0%, rgba(15,23,42,0.88) 75%);
+            border: 2px solid rgba(255, 255, 255, 0.85);
+            border-radius: 20px;
+            box-shadow: 0 0 20px rgba(56, 189, 248, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            animation: popIn 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        @keyframes popIn {
+            0% { transform: scale(0.7); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        .bw-dialogue-box {
+            width: 100%;
+            max-width: 640px;
+            background: linear-gradient(180deg, rgba(18, 24, 38, 0.95) 0%, rgba(8, 12, 22, 0.98) 100%);
+            border: 2px solid #ffffff;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.45), 0 12px 30px rgba(0, 0, 0, 0.75);
+            border-radius: 18px;
+            padding: 18px 20px;
+            color: #f8fafc;
+            position: relative;
+        }
+
+        .dialogue-speaker {
+            display: inline-block;
+            background: linear-gradient(90deg, #0284c7, #2563eb);
+            border: 1px solid #bae6fd;
+            padding: 3px 12px;
+            border-radius: 10px;
+            font-size: 13px;
+            font-weight: 900;
+            letter-spacing: 1px;
+            margin-bottom: 10px;
+            color: #fff;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+        }
+
+        .dialogue-text {
+            font-size: 16px;
+            line-height: 1.65;
+            min-height: 52px;
+            margin-bottom: 14px;
+            color: #f1f5f9;
+            letter-spacing: 0.3px;
+        }
+
+        .dialogue-choices {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .choice-btn {
+            background: linear-gradient(90deg, rgba(30, 41, 59, 0.95) 0%, rgba(51, 65, 85, 0.95) 100%);
+            border: 1.5px solid rgba(148, 163, 184, 0.7);
+            border-radius: 12px;
+            padding: 12px 16px;
+            color: #fff;
+            font-size: 15px;
+            font-weight: 700;
+            text-align: left;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.15s;
+        }
+
+        .choice-btn:hover, .choice-btn:active {
+            background: linear-gradient(90deg, #1d4ed8 0%, #2563eb 100%);
+            border-color: #ffffff;
+            transform: translateX(4px);
+            box-shadow: 0 0 12px rgba(59, 130, 246, 0.6);
+        }
+
+        .choice-tag {
+            font-size: 12px;
+            padding: 2px 8px;
+            border-radius: 8px;
+            background: rgba(0, 0, 0, 0.35);
+            color: #93c5fd;
+        }
+
+        .continue-hint {
+            text-align: right;
+            font-size: 13px;
+            color: #38bdf8;
+            font-weight: 700;
+            animation: blink 1s infinite;
+            cursor: pointer;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        /* 梅窩探索圖鑑 Modal */
+        #dex-modal {
+            position: absolute;
+            inset: 0;
+            background: rgba(6, 10, 18, 0.82);
+            backdrop-filter: blur(6px);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            padding: 16px;
+            z-index: 50;
+        }
+
+        #dex-modal.active {
+            display: flex;
+        }
+
+        .dex-card {
+            width: 100%;
+            max-width: 600px;
+            max-height: 85vh;
+            background: linear-gradient(180deg, #131b2e 0%, #0b101d 100%);
+            border: 2px solid #ffffff;
+            box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.4), 0 16px 40px rgba(0,0,0,0.85);
+            border-radius: 20px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            color: #fff;
+        }
+
+        .dex-header {
+            padding: 16px 20px;
+            background: linear-gradient(90deg, #1e3a8a, #1d4ed8);
+            border-bottom: 1.5px solid rgba(255,255,255,0.4);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .dex-header h2 {
+            margin: 0;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .dex-close {
+            background: rgba(255,255,255,0.15);
+            border: 1px solid #fff;
+            color: #fff;
+            border-radius: 10px;
+            padding: 4px 12px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .dex-body {
+            padding: 16px;
+            overflow-y: auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 12px;
+        }
+
+        .dex-item {
+            background: rgba(30, 41, 59, 0.7);
+            border: 1px solid rgba(148, 163, 184, 0.35);
+            border-radius: 14px;
+            padding: 12px;
+            transition: transform 0.2s;
+        }
+
+        .dex-item.unlocked {
+            border-color: #38bdf8;
+            background: linear-gradient(135deg, rgba(30, 58, 138, 0.45), rgba(15, 23, 42, 0.85));
+            box-shadow: 0 4px 12px rgba(2, 132, 199, 0.25);
+        }
+
+        .dex-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+
+        .dex-item-title {
+            font-weight: 900;
+            font-size: 14px;
+            color: #7dd3fc;
+        }
+
+        .dex-item.locked .dex-item-title {
+            color: #64748b;
+        }
+
+        .dex-badge {
+            font-size: 11px;
+            padding: 2px 6px;
+            border-radius: 6px;
+            background: rgba(15, 23, 42, 0.8);
+            color: #94a3b8;
+        }
+
+        .dex-item.unlocked .dex-badge {
+            background: #0284c7;
+            color: #fff;
+        }
+
+        .dex-desc {
+            font-size: 12.5px;
+            color: #cbd5e1;
+            line-height: 1.45;
+        }
+
+        .dex-item.locked .dex-desc {
+            color: #475569;
+            font-style: italic;
+        }
+
+        /* 初始操作小提示 */
+        #controls-hint {
+            position: absolute;
+            bottom: 14px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(15, 23, 42, 0.78);
+            border: 1px solid rgba(255,255,255,0.4);
+            color: #e2e8f0;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 12px;
+            pointer-events: none;
+            z-index: 15;
+            white-space: nowrap;
+            backdrop-filter: blur(4px);
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- 頂部狀態列 -->
+    <div id="hud-top">
+        <div class="hud-panel">
+            <div class="location-badge">
+                <span>📍</span>
+                <span id="ui-location">梅窩碼頭區</span>
+            </div>
+        </div>
+
+        <div class="hud-panel stats-group">
+            <div class="hp-bar-wrap">
+                <span style="color:#4ade80;">HP</span>
+                <div class="hp-track">
+                    <div class="hp-fill" id="ui-hp-bar"></div>
+                </div>
+                <span id="ui-hp-text">100</span>
+            </div>
+            <div class="money-text" id="ui-money">$200</div>
+        </div>
+
+        <button class="dex-btn" id="btn-open-dex">📖 梅窩圖鑑 (<span id="ui-dex-count">0</span>/12)</button>
+    </div>
+
+    <!-- 數值變化飄浮提示 -->
+    <div id="floating-toast"></div>
+
+    <!-- 地圖轉場黑屏遮罩 -->
+    <div id="fade-overlay"></div>
+
+    <!-- 底部操作提示 -->
+    <div id="controls-hint">🕹️ 滑動螢幕推動移動 · 輕點建築或「！」互動 · 走至發光箭頭出口切換區域</div>
+
+    <!-- 《寶可夢 黑版》風格劇情對話覆蓋層 -->
+    <div id="dialogue-overlay">
+        <div id="portrait-box" style="display:none;">
+            <canvas id="portraitCanvas" width="110" height="110"></canvas>
+        </div>
+        <div class="bw-dialogue-box" id="dialogue-box">
+            <div class="dialogue-speaker" id="dlg-speaker">梅窩探索</div>
+            <div class="dialogue-text" id="dlg-text"></div>
+            <div class="dialogue-choices" id="dlg-choices"></div>
+            <div class="continue-hint" id="dlg-continue" style="display:none;">▼ 點擊繼續</div>
+        </div>
+    </div>
+
+    <!-- 梅窩探索圖鑑視窗 -->
+    <div id="dex-modal">
+        <div class="dex-card">
+            <div class="dex-header">
+                <h2>📖 梅窩探索圖鑑 <span id="dex-progress" style="font-size:14px; font-weight:500; opacity:0.9;">(0/12)</span></h2>
+                <button class="dex-close" id="btn-close-dex">關閉 ✕</button>
+            </div>
+            <div class="dex-body" id="dex-list"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+/**
+ * 香港梅窩（Mui Wo）2.5D 像素探索 RPG（分區地圖切換系統版）
+ * - 支援多張 60x45 大地圖（maps['pier'] 梅窩碼頭區、maps['promenade'] 觀景台與市政區）
+ * - 出口發光箭頭地板標記 + 推動確認視窗 + 黑屏淡入淡出轉場
+ * - 保留《寶可夢 黑版》2.5D 美術風格、全螢幕浮動搖桿推拉移動與主角置中鏡頭跟隨
+ */
+
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const portraitCanvas = document.getElementById('portraitCanvas');
+const pCtx = portraitCanvas.getContext('2d');
+
+// 每張地圖皆為 60 x 45 網格
+const MAP_COLS = 60;
+const MAP_ROWS = 45;
+const TILE_SIZE = 48;
+
+// 地形代碼定義：
+// 0: 海水與波光, 1: 沙灘/觀景台海邊, 2: 草地, 3: 濕地高草叢(25%遇水牛), 4: 石板路/行人道,
+// 5: 山壁/護欄石牆(不可通行), 6: 瀑布/噴泉水景(不可通行), 7: 木棧道/碼頭棧道, 8: 柏油路/巴士站路面
+const TERRAIN_NAMES = {
+    0: 'sea',
+    1: 'sand',
+    2: 'grass',
+    3: 'tall_grass',
+    4: 'paving',
+    5: 'wall',
+    6: 'water_feature',
+    7: 'pier_wood',
+    8: 'road'
+};
+
+// 12 種道地香港梅窩幽默隨機劇情資料庫
+const SCENARIOS = {
+    buffalo: [
+        {
+            id: 'buf_1',
+            title: '濕地霸主：放空的水牛',
+            category: '梅窩水牛',
+            speaker: '野生梅窩水牛',
+            text: '一隻體型壯碩的梅窩水牛正躺在草地上反芻，眼神充滿哲學地盯著你，完全沒有讓路的意思。',
+            choices: [
+                {
+                    label: '學牠一起坐在草地上放空',
+                    tag: '+15 HP',
+                    result: '你和水牛並肩發呆了十分鐘，都市人的焦慮瞬間煙消雲散！體力恢復了 15 點。',
+                    hp: 15, money: 0
+                },
+                {
+                    label: '拿手機開閃光燈拍牠',
+                    tag: '-15 HP',
+                    result: '水牛不爽地甩了甩尾巴，濺了你一身草屑與泥點！狼狽逃跑消耗了 15 點體力。',
+                    hp: -15, money: 0
+                }
+            ]
+        },
+        {
+            id: 'buf_2',
+            title: '牛魔王的過路費',
+            category: '梅窩水牛',
+            speaker: '梅窩水牛隊長',
+            text: '水牛擋在林蔭道中央，低頭嗅了嗅你背包裡剛買的香蕉，發出一聲低沉的「哞——」。',
+            choices: [
+                {
+                    label: '雙手奉上香蕉示好',
+                    tag: '-$15 / +10 HP',
+                    result: '水牛滿意地吃掉香蕉，還用濕潤的鼻子蹭了蹭你的手心以示認可！（花費 $15 買補給）',
+                    hp: 10, money: -15
+                },
+                {
+                    label: '試圖用粵語跟牠講道理',
+                    tag: '-5 HP',
+                    result: '「唔該借借啊牛哥！」水牛打了一個大噴嚏回應你，你只好等牠心情好再走。',
+                    hp: -5, money: 0
+                }
+            ]
+        },
+        {
+            id: 'buf_3',
+            title: '白鷺與水牛的下午茶',
+            category: '梅窩水牛',
+            speaker: '濕地生態奇觀',
+            text: '你發現水牛背上停著兩隻小白鷺，正免費幫水牛抓蟲子，畫面和諧得像明信片一樣。',
+            choices: [
+                {
+                    label: '靜靜欣賞並捐款支持保育',
+                    tag: '-$20 / +20 HP',
+                    result: '你把零錢投進旁邊的濕地保育箱，內心感到無比充實與平靜！',
+                    hp: 20, money: -20
+                },
+                {
+                    label: '在旁邊草叢撿到閃亮硬幣',
+                    tag: '+$30',
+                    result: '你低頭找拍照角度時，意外在草叢裡撿到遊客掉落的 $30 港幣！',
+                    hp: 0, money: 30
+                }
+            ]
+        }
+    ],
+    beach: [
+        {
+            id: 'bch_1',
+            title: '銀礦灣海景觀台微風',
+            category: '銀礦灣觀景台',
+            speaker: '銀礦灣觀景台',
+            text: '站在觀景台木棧道俯瞰銀礦灣，海風吹散了汗水，遠處海面波光粼粼，令人心曠神怡。',
+            choices: [
+                {
+                    label: '靠在欄杆吹海風看海景',
+                    tag: '+20 HP',
+                    result: '看著遼闊海景與粼粼波光，旅途疲憊一掃而空，體力恢復 20 點！',
+                    hp: 20, money: 0
+                },
+                {
+                    label: '幫旁邊的遊客拍海景合照',
+                    tag: '+$25',
+                    result: '你把觀景台與海景構圖得剛剛好，對方開心地塞給你 $25 港幣當謝禮！',
+                    hp: 0, money: 25
+                }
+            ]
+        },
+        {
+            id: 'bch_2',
+            title: '觀景台下的閃亮寶藏',
+            category: '銀礦灣觀景台',
+            speaker: '海邊尋寶',
+            text: '觀景台階梯旁的海風吹來一張紙條，順著箭頭看去，石縫邊似乎卡著什麼閃閃發光的東西。',
+            choices: [
+                {
+                    label: '小心翼翼撿起閃亮物品',
+                    tag: '+$40',
+                    result: '竟然是一枚閃亮的紀念幣與漂亮貝殼！今天手氣真不錯（+$40 HKD）！',
+                    hp: 0, money: 40
+                },
+                {
+                    label: '追著海邊飛舞的海鷗跑',
+                    tag: '-10 HP / +$10',
+                    result: '海鷗根本不理你還飛走了（-10 HP），但你在長椅下撿到 $10 零錢！',
+                    hp: -10, money: 10
+                }
+            ]
+        },
+        {
+            id: 'bch_3',
+            title: '海濱單車友的挑戰',
+            category: '銀礦灣觀景台',
+            speaker: '單車友阿明',
+            text: '一位穿著車衣的單車友停在觀景台旁喝水：「喂！由碼頭踩上嚟觀景台仲有氣力？夠唔夠膽比試下？」',
+            choices: [
+                {
+                    label: '接受挑戰來回衝刺！',
+                    tag: '-15 HP / +$35',
+                    result: '雖然跑得上氣不接下氣（-15 HP），但贏得單車友請客的 $35 運動飲料基金！',
+                    hp: -15, money: 35
+                },
+                {
+                    label: '笑著請他看梅窩風景',
+                    tag: '+10 HP',
+                    result: '兩人一起聊著梅窩海風與路線，心情愉快體力 +10！',
+                    hp: 10, money: 0
+                }
+            ]
+        }
+    ],
+    cafe: [
+        {
+            id: 'cfe_1',
+            title: '剛出爐的邪惡菠蘿油',
+            category: '熟食與茶記',
+            speaker: '茶餐廳夥計',
+            text: '「靚仔/靚女坐低飲杯嘢啦！啱啱出爐嘅酥皮菠蘿油，夾埋厚切冰牛油，正到震呀！」',
+            choices: [
+                {
+                    label: '豪點一份菠蘿油＋凍奶茶',
+                    tag: '-$30 / +45 HP',
+                    result: '冰火交融的菠蘿油配上絲滑港式奶茶，瞬間滿血復活！體力大增 45 點！',
+                    hp: 45, money: -30
+                },
+                {
+                    label: '只點一杯齋啡吹冷氣',
+                    tag: '-$15 / +20 HP',
+                    result: '在卡位吹著超強冷氣歇息，感覺又可以再走好遠！',
+                    hp: 20, money: -15
+                }
+            ]
+        },
+        {
+            id: 'cfe_2',
+            title: '熟食市場光速落單挑戰',
+            category: '熟食與茶記',
+            speaker: '熟食檔阿姐',
+            text: '阿姐拿著點菜單站在檔口前，眼神犀利地看著你：「食咩呀？快啲講，鑊氣啱啱起呀！」',
+            choices: [
+                {
+                    label: '流利喊出「沙嗲牛通粉走青！」',
+                    tag: '-$30 / +40 HP',
+                    result: '阿姐露出讚賞的微笑：「識食！」熱騰騰的沙嗲牛通粉立刻上桌！',
+                    hp: 40, money: -30
+                },
+                {
+                    label: '猶豫了五秒鐘才看餐牌',
+                    tag: '-$30 / +25 HP',
+                    result: '被阿姐「嘖」了一聲，但端上來的西多士依然香脆可口，體力恢復 25 點。',
+                    hp: 25, money: -30
+                }
+            ]
+        },
+        {
+            id: 'cfe_3',
+            title: '鄰桌街坊的梅窩秘聞',
+            category: '熟食與茶記',
+            speaker: '梅窩老街坊',
+            text: '坐在隔壁桌喝茶的伯伯看著你的背包：「後生仔去行梅窩呀？記得食飽先好繼續行呀！」',
+            choices: [
+                {
+                    label: '請伯伯喝杯茶聊聊天',
+                    tag: '-$20 / +30 HP',
+                    result: '伯伯開心分享了許多老梅窩的故事，還送你一顆陳皮梅潤喉！',
+                    hp: 30, money: -20
+                },
+                {
+                    label: '打包兩個蛋撻帶在路上吃',
+                    tag: '-$20 / +25 HP',
+                    result: '酥脆蛋撻香氣四溢，邊走邊吃幸福感爆棚！',
+                    hp: 25, money: -20
+                }
+            ]
+        }
+    ],
+    waterfall: [
+        {
+            id: 'wtf_1',
+            title: '郵政局的懷舊郵票',
+            category: '市政與郵政',
+            speaker: '梅窩郵政局',
+            text: '梅窩郵政局櫃檯前擺著離島特色郵票與綠色郵筒，職員親切地問你要寄明信片還是辦事。',
+            choices: [
+                {
+                    label: '買套離島紀念郵票收藏',
+                    tag: '-$20 / +25 HP',
+                    result: '拿到印有海島風光的限定郵票，心情格外踏實，體力恢復 25 點！',
+                    hp: 25, money: -20
+                },
+                {
+                    label: '幫郵差叔叔搬一箱包裹',
+                    tag: '-10 HP / +$35',
+                    result: '雖然搬箱子有點累（-10 HP），但郵差叔叔請你喝飲料並給你 $35 酬勞！',
+                    hp: -10, money: 35
+                }
+            ]
+        },
+        {
+            id: 'wtf_2',
+            title: '民政事務處的社區故事',
+            category: '市政與郵政',
+            speaker: '離島民政事務處梅窩分處',
+            text: '政府建築大廳裡貼滿了梅窩社區活動海報與地區導覽圖，展示著離島鄉郊與現代生活的交融。',
+            choices: [
+                {
+                    label: '翻閱梅窩社區歷史刊物',
+                    tag: '+30 HP',
+                    result: '了解梅窩從漁村、礦業到今日渡假小鎮的演變，精神充沛 +30 HP！',
+                    hp: 30, money: 0
+                },
+                {
+                    label: '協助整理社區導覽摺頁',
+                    tag: '-10 HP / +$20',
+                    result: '仔細排好海報與導覽冊（-10 HP），獲贈地區小禮品與 $20 交通津貼！',
+                    hp: -10, money: 20
+                }
+            ]
+        },
+        {
+            id: 'wtf_3',
+            title: '海濱公園涼亭的午后微風',
+            category: '市政與郵政',
+            speaker: '梅窩海濱公園',
+            text: '海濱公園的涼亭與長椅被綠樹環繞，幾位街坊正在樹下乘涼下棋，微風徐徐吹來。',
+            choices: [
+                {
+                    label: '坐在涼亭長椅上小憩片刻',
+                    tag: '+15 HP',
+                    result: '聽著樹葉沙沙作響與海浪聲，體力悄悄恢復了 15 點！',
+                    hp: 15, money: 0
+                },
+                {
+                    label: '在公園長椅旁撿到遺落零錢',
+                    tag: '+$25',
+                    result: '你在長椅縫隙發現一枚 $25 港幣，決定先收好當作下一頓茶記加料基金！',
+                    hp: 0, money: 25
+                }
+            ]
+        }
+    ]
+};
+
+const ALL_DEX_ENTRIES = [
+    ...SCENARIOS.buffalo,
+    ...SCENARIOS.beach,
+    ...SCENARIOS.cafe,
+    ...SCENARIOS.waterfall
+];
+
+/**
+ * 建立 60 x 45 地圖工具函式
+ */
+function createGrid(rows, cols, fillValue) {
+    return Array.from({ length: rows }, () => Array(cols).fill(fillValue));
+}
+
+function fillRect(grid, x, y, w, h, val) {
+    for (let r = y; r < y + h; r++) {
+        for (let c = x; c < x + w; c++) {
+            if (r >= 0 && r < grid.length && c >= 0 && c < grid[0].length) {
+                grid[r][c] = val;
+            }
+        }
+    }
+}
+
+/**
+ * 建立第一張地圖（60x45）：梅窩碼頭區（Mui Wo Ferry Pier）
+ * - 南方（下方）：渡輪碼頭（起點）、海面波光與停泊的渡輪
+ * - 東西兩側（左右）：巴士總站、單車租借店、熟食市場與海濱長廊樹林
+ * - 北方邊緣（最上方道路盡頭）：設置通往第二張地圖的出口（前往 - 銀礦灣觀景台）
+ */
+function buildPierMap() {
+    const terrain = createGrid(MAP_ROWS, MAP_COLS, 2); // 預設綠意草地
+
+    // 1. 南方海域（y: 38 ~ 44）與銀礦灣海邊（右側 y: 26 ~ 37）
+    fillRect(terrain, 0, 38, 60, 7, 0);
+    fillRect(terrain, 52, 24, 8, 14, 0);
+    fillRect(terrain, 49, 24, 3, 14, 1); // 右側沙灘邊緣
+
+    // 2. 南方渡輪碼頭棧道與停泊渡輪區（x: 24 ~ 35, y: 34 ~ 41）
+    fillRect(terrain, 24, 34, 12, 7, 7);
+    fillRect(terrain, 22, 33, 16, 2, 4); // 碼頭廣場石板路
+
+    // 3. 主要南北向海濱大道與東西向街道（連接碼頭、巴士總站、單車店、熟食市場至北方出口）
+    fillRect(terrain, 27, 2, 6, 32, 8);  // 中央主幹道
+    fillRect(terrain, 26, 2, 1, 32, 4);  // 西側行人道
+    fillRect(terrain, 33, 2, 1, 32, 4);  // 東側行人道
+
+    // 東西向支路（連接西側巴士總站 & 熟食市場、東側單車租借店 & 海濱長廊）
+    fillRect(terrain, 8, 22, 44, 4, 8);
+    fillRect(terrain, 8, 21, 44, 1, 4);
+    fillRect(terrain, 8, 26, 44, 1, 4);
+
+    // 4. 西側巴士總站（x: 11 ~ 21, y: 27 ~ 32）與熟食市場區（x: 9 ~ 20, y: 12 ~ 18）
+    fillRect(terrain, 11, 27, 11, 6, 8);
+    fillRect(terrain, 10, 27, 1, 6, 4);
+    fillRect(terrain, 9, 12, 12, 7, 4);
+
+    // 5. 東側單車租借店廣場（x: 37 ~ 46, y: 27 ~ 32）與東側海濱長廊樹林（x: 37 ~ 50, y: 6 ~ 19）
+    fillRect(terrain, 37, 27, 10, 6, 4);
+    fillRect(terrain, 38, 7, 12, 11, 2);
+
+    // 6. 濕地高草叢點綴（x: 10 ~ 21, y: 3 ~ 9 與 x: 38 ~ 48, y: 2 ~ 5）
+    fillRect(terrain, 11, 4, 10, 5, 3);
+    fillRect(terrain, 39, 3, 9, 3, 3);
+
+    // 7. 北方邊界圍欄與北方出口（x: 28 ~ 31, y: 0）
+    for (let c = 0; c < MAP_COLS; c++) {
+        if (c < 28 || c > 31) {
+            terrain[0][c] = 5;
+        } else {
+            terrain[0][c] = 8;
+            terrain[1][c] = 8;
+        }
+    }
+
+    const buildings = [
+        {
+            id: 'pier_ferry_terminal',
+            name: '梅窩渡輪碼頭',
+            category: 'beach',
+            x: 25, y: 34, w: 10, h: 4,
+            roofColor: '#2563eb',
+            wallColor: '#f8fafc',
+            trimColor: '#1d4ed8',
+            interactX: 29, interactY: 38,
+            type: 'pier'
+        },
+        {
+            id: 'pier_bus_terminus',
+            name: '梅窩巴士總站',
+            category: 'beach',
+            x: 12, y: 28, w: 9, h: 3,
+            roofColor: '#0284c7',
+            wallColor: '#e2e8f0',
+            trimColor: '#0369a1',
+            interactX: 16, interactY: 31,
+            type: 'bus'
+        },
+        {
+            id: 'pier_bike_shop',
+            name: '梅窩單車租借店',
+            category: 'beach',
+            x: 38, y: 28, w: 8, h: 3,
+            roofColor: '#f59e0b',
+            wallColor: '#fef3c7',
+            trimColor: '#b45309',
+            interactX: 41, interactY: 31,
+            type: 'bike'
+        },
+        {
+            id: 'pier_cooked_food_market',
+            name: '梅窩熟食市場',
+            category: 'cafe',
+            x: 10, y: 13, w: 10, h: 4,
+            roofColor: '#dc2626',
+            wallColor: '#fef2f2',
+            trimColor: '#991b1b',
+            interactX: 15, interactY: 17,
+            type: 'cafe'
+        }
+    ];
+
+    const props = [
+        // 停泊在碼頭南側海面的渡輪
+        { type: 'ferry', x: 26, y: 40 },
+        // 巴士站月台指示
+        { type: 'bus_stop', x: 22, y: 29 },
+        // 單車排
+        { type: 'bikes', x: 37, y: 32 },
+        { type: 'bikes', x: 44, y: 32 },
+        // 海濱長廊與兩側樹林
+        { type: 'palm', x: 38, y: 8 }, { type: 'palm', x: 42, y: 10 },
+        { type: 'palm', x: 46, y: 8 }, { type: 'palm', x: 40, y: 15 },
+        { type: 'palm', x: 47, y: 15 }, { type: 'tree', x: 23, y: 10 },
+        { type: 'tree', x: 36, y: 10 }, { type: 'tree', x: 23, y: 18 },
+        { type: 'tree', x: 36, y: 18 }, { type: 'tree', x: 6, y: 24 },
+        { type: 'tree', x: 52, y: 20 }
+    ];
+
+    const npcs = [
+        { id: 'pier_buffalo_1', name: '草地水牛', x: 15, y: 6, type: 'buffalo', dir: 0 }
+    ];
+
+    const exits = [
+        {
+            id: 'to_promenade',
+            x: 28, y: 0, w: 4, h: 1,
+            dir: 3, // 朝北（上）推動觸發
+            label: '銀礦灣觀景台',
+            promptText: '前方是「銀礦灣觀景台」，要前往嗎？',
+            targetMap: 'promenade',
+            targetX: 29,
+            targetY: 42,
+            targetDir: 3
+        }
+    ];
+
+    return {
+        id: 'pier',
+        name: '梅窩碼頭區',
+        spawn: { x: 29, y: 36, dir: 3 },
+        terrain,
+        buildings,
+        props,
+        npcs,
+        exits
+    };
+}
+
+/**
+ * 建立第二張地圖（60x45）：觀景台與市政區（Viewpoint & Town Centre）
+ * - 南方（下方起點）：連接第一張地圖的銀礦灣觀景台（面向大海的木棧道與欄杆，走回最南邊可選擇返回「梅窩碼頭區」）
+ * - 中央與兩側建築（依真實梅窩海濱市中心配置）：「離島民政事務處梅窩分處」、「梅窩郵政局」、以及綠意盎然的「梅窩海濱公園」
+ * - 北方邊緣（最上方道路盡頭）：設置通往下一區域的出口（前往 - 銀礦灣泳灘（第三地圖））
+ */
+function buildPromenadeMap() {
+    const terrain = createGrid(MAP_ROWS, MAP_COLS, 2);
+
+    // 1. 南方銀礦灣觀景台木棧道與欄杆（y: 40 ~ 44）
+    fillRect(terrain, 16, 40, 28, 4, 7);
+    fillRect(terrain, 27, 36, 6, 4, 4);
+    // 觀景台最南端海景護欄（不可通行，但走至 x:28..31, y:43 朝南推動可返回碼頭區）
+    for (let c = 16; c < 44; c++) {
+        if (c < 28 || c > 31) {
+            terrain[44][c] = 5;
+        } else {
+            terrain[44][c] = 7;
+        }
+    }
+
+    // 2. 市中心主幹道與廣場（連接觀景台、市政建築、郵政局、海濱公園與北方出口）
+    fillRect(terrain, 27, 2, 6, 35, 8);  // 南北主幹道
+    fillRect(terrain, 26, 2, 1, 35, 4);
+    fillRect(terrain, 33, 2, 1, 35, 4);
+
+    fillRect(terrain, 10, 21, 40, 4, 8);  // 東西市政大道
+    fillRect(terrain, 10, 20, 40, 1, 4);
+    fillRect(terrain, 10, 25, 40, 1, 4);
+
+    // 3. 中央與左側市政區廣場（離島民政事務處梅窩分處 & 梅窩郵政局）
+    fillRect(terrain, 11, 11, 14, 8, 4);
+    fillRect(terrain, 35, 11, 12, 8, 4);
+
+    // 4. 綠意盎然的「梅窩海濱公園」（x: 10 ~ 49, y: 26 ~ 35 與公園景觀池）
+    fillRect(terrain, 11, 27, 14, 8, 2);
+    fillRect(terrain, 35, 27, 14, 8, 2);
+    fillRect(terrain, 40, 29, 4, 3, 6); // 公園小水池/水景
+
+    // 5. 北方邊界圍欄與通往第三地圖「銀礦灣泳灘」的出口（x: 28 ~ 31, y: 0）
+    for (let c = 0; c < MAP_COLS; c++) {
+        if (c < 28 || c > 31) {
+            terrain[0][c] = 5;
+        } else {
+            terrain[0][c] = 8;
+            terrain[1][c] = 8;
+        }
+    }
+
+    const buildings = [
+        {
+            id: 'isdo_mui_wo',
+            name: '離島民政事務處梅窩分處',
+            category: 'waterfall',
+            x: 12, y: 12, w: 11, h: 4,
+            roofColor: '#475569',
+            wallColor: '#f1f5f9',
+            trimColor: '#1e293b',
+            interactX: 17, interactY: 16,
+            type: 'isdo'
+        },
+        {
+            id: 'mui_wo_post_office',
+            name: '梅窩郵政局',
+            category: 'waterfall',
+            x: 36, y: 12, w: 9, h: 4,
+            roofColor: '#15803d',
+            wallColor: '#dcfce7',
+            trimColor: '#166534',
+            interactX: 40, interactY: 16,
+            type: 'post_office'
+        },
+        {
+            id: 'mui_wo_seaside_park',
+            name: '梅窩海濱公園',
+            category: 'waterfall',
+            x: 14, y: 28, w: 8, h: 3,
+            roofColor: '#0d9488',
+            wallColor: '#ccfbf1',
+            trimColor: '#0f766e',
+            interactX: 18, interactY: 31,
+            type: 'park'
+        }
+    ];
+
+    const props = [
+        // 觀景台海景欄杆與望遠鏡
+        { type: 'railing', x: 18, y: 43 }, { type: 'railing', x: 22, y: 43 },
+        { type: 'railing', x: 34, y: 43 }, { type: 'railing', x: 38, y: 43 },
+        // 郵政局綠色郵筒
+        { type: 'mailbox', x: 35, y: 16 },
+        // 海濱公園涼亭與長椅、樹林
+        { type: 'pavilion', x: 36, y: 28 },
+        { type: 'bench', x: 13, y: 32 }, { type: 'bench', x: 22, y: 32 },
+        { type: 'bench', x: 45, y: 30 },
+        { type: 'tree', x: 12, y: 27 }, { type: 'tree', x: 24, y: 27 },
+        { type: 'tree', x: 15, y: 34 }, { type: 'tree', x: 46, y: 27 },
+        { type: 'tree', x: 47, y: 34 }, { type: 'palm', x: 23, y: 38 },
+        { type: 'palm', x: 36, y: 38 }
+    ];
+
+    const npcs = [
+        { id: 'promenade_buffalo_1', name: '公園悠閒水牛', x: 20, y: 33, type: 'buffalo', dir: 0 }
+    ];
+
+    const exits = [
+        {
+            id: 'back_to_pier',
+            x: 28, y: 43, w: 4, h: 1,
+            dir: 0, // 朝南（下）推動觸發
+            label: '梅窩碼頭區',
+            promptText: '前方是「梅窩碼頭區」，要返回嗎？',
+            targetMap: 'pier',
+            targetX: 29,
+            targetY: 2,
+            targetDir: 0
+        },
+        {
+            id: 'to_silvermine_beach',
+            x: 28, y: 0, w: 4, h: 1,
+            dir: 3, // 朝北（上）推動觸發
+            label: '銀礦灣泳灘（第三地圖）',
+            promptText: '前方是「銀礦灣泳灘（第三地圖）」，要前往嗎？',
+            targetMap: null,
+            targetX: 0,
+            targetY: 0,
+            targetDir: 3
+        }
+    ];
+
+    return {
+        id: 'promenade',
+        name: '觀景台與市政區',
+        spawn: { x: 29, y: 41, dir: 3 },
+        terrain,
+        buildings,
+        props,
+        npcs,
+        exits
+    };
+}
+
+// 多地圖資料集合
+const MAPS = {
+    pier: buildPierMap(),
+    promenade: buildPromenadeMap()
+};
+
+// 遊戲全域狀態
+const state = {
+    currentMapId: 'pier',
+    hp: 100,
+    maxHp: 100,
+    money: 200,
+    unlockedDex: new Set(),
+    player: {
+        gridX: 29,
+        gridY: 36,
+        pixelX: 29 * TILE_SIZE,
+        pixelY: 36 * TILE_SIZE,
+        targetGridX: 29,
+        targetGridY: 36,
+        dir: 3, // 0: 下, 1: 左, 2: 右, 3: 上
+        walkFrame: 0,
+        isMoving: false
+    },
+    // 全螢幕浮動搖桿狀態（Touch Drag / Floating Joystick）
+    joystick: {
+        active: false,
+        pointerId: null,
+        originX: 0,
+        originY: 0,
+        currentX: 0,
+        currentY: 0,
+        dx: 0,
+        dy: 0,
+        hasDragged: false
+    },
+    keysHeld: new Set(),
+    footprints: [],
+    particles: [],
+    camera: { x: 0, y: 0, zoom: 1 },
+    dialogueActive: false,
+    isTransitioning: false,
+    pendingExitId: null,
+    typingTimer: null,
+    time: 0
+};
+
+function getCurrentMap() {
+    return MAPS[state.currentMapId];
+}
+
+// 初始化環境光影粒子
+for (let i = 0; i < 45; i++) {
+    state.particles.push({
+        x: Math.random() * MAP_COLS * TILE_SIZE,
+        y: Math.random() * MAP_ROWS * TILE_SIZE,
+        vx: 0.35 + Math.random() * 0.55,
+        vy: -0.12 + Math.random() * 0.32,
+        size: 2 + Math.random() * 2,
+        color: Math.random() > 0.5 ? 'rgba(255,255,255,0.5)' : 'rgba(187,247,208,0.6)'
+    });
+}
+
+/**
+ * 檢查指定座標是否位於某個出口傳送點
+ */
+function getExitAt(gx, gy) {
+    const map = getCurrentMap();
+    for (const ex of map.exits) {
+        if (gx >= ex.x && gx < ex.x + ex.w && gy >= ex.y && gy < ex.y + ex.h) {
+            return ex;
+        }
+    }
+    return null;
+}
+
+/**
+ * 判斷指定網格座標是否可通行
+ */
+function isWalkable(gx, gy) {
+    if (gx < 0 || gx >= MAP_COLS || gy < 0 || gy >= MAP_ROWS) return false;
+    const map = getCurrentMap();
+    const terrain = map.terrain[gy][gx];
+    // 0: 海水, 5: 圍欄/山壁, 6: 水池 不可通行
+    if (terrain === 0 || terrain === 5 || terrain === 6) return false;
+
+    // 有屋頂的建築不可穿過
+    for (const b of map.buildings) {
+        if (b.roofColor !== 'none') {
+            if (gx >= b.x && gx < b.x + b.w && gy >= b.y && gy < b.y + b.h) {
+                return false;
+            }
+        }
+    }
+
+    // NPC 不可穿過
+    for (const npc of map.npcs) {
+        if (npc.x === gx && npc.y === gy) return false;
+    }
+
+    // 大型樹木與涼亭不可穿過
+    for (const p of map.props) {
+        if ((p.type === 'palm' || p.type === 'tree' || p.type === 'pavilion' || p.type === 'ferry') && p.x === gx && p.y === gy) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+/**
+ * 更新頂部地點名稱與 UI 狀態
+ */
+function updateLocationAndHUD() {
+    const map = getCurrentMap();
+    document.getElementById('ui-location').textContent = map.name;
+    document.getElementById('ui-hp-text').textContent = state.hp;
+    document.getElementById('ui-money').textContent = `$${state.money}`;
+    document.getElementById('ui-dex-count').textContent = state.unlockedDex.size;
+
+    const hpPct = Math.max(0, Math.min(100, (state.hp / state.maxHp) * 100));
+    const hpBar = document.getElementById('ui-hp-bar');
+    hpBar.style.width = `${hpPct}%`;
+    if (hpPct > 50) {
+        hpBar.style.background = 'linear-gradient(90deg, #22c55e, #4ade80)';
+    } else if (hpPct > 25) {
+        hpBar.style.background = 'linear-gradient(90deg, #eab308, #facc15)';
+    } else {
+        hpBar.style.background = 'linear-gradient(90deg, #ef4444, #f87171)';
+    }
+}
+
+/**
+ * 顯示飄浮數值提示
+ */
+function showToast(msg) {
+    const toast = document.getElementById('floating-toast');
+    toast.textContent = msg;
+    toast.classList.add('show');
+    clearTimeout(toast._timer);
+    toast._timer = setTimeout(() => {
+        toast.classList.remove('show');
+    }, 2600);
+}
+
+/**
+ * 繪製特寫像素立繪
+ */
+function drawPortrait(category) {
+    const box = document.getElementById('portrait-box');
+    box.style.display = 'flex';
+    pCtx.clearRect(0, 0, 110, 110);
+
+    if (category === 'buffalo') {
+        pCtx.fillStyle = 'rgba(0,0,0,0.35)';
+        pCtx.beginPath();
+        pCtx.ellipse(55, 92, 34, 9, 0, 0, Math.PI * 2);
+        pCtx.fill();
+
+        pCtx.fillStyle = '#475569';
+        pCtx.fillRect(28, 48, 54, 34);
+        pCtx.fillStyle = '#334155';
+        pCtx.fillRect(28, 70, 54, 12);
+
+        pCtx.fillStyle = '#1e293b';
+        pCtx.fillRect(32, 80, 10, 12);
+        pCtx.fillRect(68, 80, 10, 12);
+
+        pCtx.fillStyle = '#e2e8f0';
+        pCtx.fillRect(18, 26, 12, 8);
+        pCtx.fillRect(14, 20, 8, 10);
+        pCtx.fillRect(80, 26, 12, 8);
+        pCtx.fillRect(88, 20, 8, 10);
+
+        pCtx.fillStyle = '#475569';
+        pCtx.fillRect(30, 26, 50, 36);
+        pCtx.fillStyle = '#1e293b';
+        pCtx.fillRect(36, 24, 38, 8);
+
+        pCtx.fillStyle = '#ffffff';
+        pCtx.fillRect(36, 36, 10, 10);
+        pCtx.fillRect(64, 36, 10, 10);
+        pCtx.fillStyle = '#0f172a';
+        pCtx.fillRect(40, 38, 6, 6);
+        pCtx.fillRect(64, 38, 6, 6);
+
+        pCtx.fillStyle = '#94a3b8';
+        pCtx.fillRect(34, 48, 42, 16);
+        pCtx.fillStyle = '#1e293b';
+        pCtx.fillRect(42, 52, 6, 6);
+        pCtx.fillRect(62, 52, 6, 6);
+    } else if (category === 'cafe') {
+        pCtx.fillStyle = '#f8fafc';
+        pCtx.fillRect(64, 34, 26, 48);
+        pCtx.fillStyle = '#b45309';
+        pCtx.fillRect(67, 42, 20, 36);
+        pCtx.fillStyle = '#38bdf8';
+        pCtx.fillRect(76, 18, 4, 24);
+
+        pCtx.fillStyle = '#d97706';
+        pCtx.beginPath();
+        pCtx.arc(40, 62, 24, Math.PI, 0);
+        pCtx.fill();
+        pCtx.fillStyle = '#fbbf24';
+        pCtx.fillRect(24, 48, 32, 10);
+        pCtx.fillStyle = '#fef08a';
+        pCtx.fillRect(18, 60, 44, 7);
+        pCtx.fillStyle = '#b45309';
+        pCtx.fillRect(20, 67, 40, 12);
+    } else if (category === 'waterfall') {
+        pCtx.fillStyle = '#1e293b';
+        pCtx.fillRect(22, 24, 66, 60);
+        pCtx.fillStyle = '#38bdf8';
+        pCtx.fillRect(30, 34, 50, 40);
+        pCtx.fillStyle = '#f8fafc';
+        pCtx.font = 'bold 13px "Noto Sans TC", sans-serif';
+        pCtx.textAlign = 'center';
+        pCtx.fillText('MUI WO', 55, 58);
+    } else {
+        pCtx.fillStyle = '#fb923c';
+        pCtx.beginPath();
+        pCtx.arc(55, 55, 36, 0, Math.PI * 2);
+        pCtx.fill();
+        pCtx.fillStyle = '#fde047';
+        pCtx.beginPath();
+        pCtx.arc(55, 55, 24, 0, Math.PI * 2);
+        pCtx.fill();
+        pCtx.fillStyle = '#0284c7';
+        pCtx.fillRect(15, 62, 80, 28);
+    }
+}
+
+/**
+ * 執行地圖切換與黑屏淡入淡出轉場
+ */
+function transitionToMap(exitObj) {
+    if (state.isTransitioning) return;
+
+    // 若尚未實作下一張地圖（如第三地圖銀礦灣泳灘），提示施工中
+    if (!exitObj.targetMap || !MAPS[exitObj.targetMap]) {
+        showToast('🚧 前方海灘施工中，敬請期待（第三地圖預留區域）！');
+        return;
+    }
+
+    state.isTransitioning = true;
+    resetJoystick();
+    state.keysHeld.clear();
+
+    const fadeEl = document.getElementById('fade-overlay');
+    fadeEl.classList.add('active');
+
+    setTimeout(() => {
+        const nextMap = MAPS[exitObj.targetMap];
+        state.currentMapId = exitObj.targetMap;
+        state.footprints = [];
+
+        const destX = exitObj.targetX ?? nextMap.spawn.x;
+        const destY = exitObj.targetY ?? nextMap.spawn.y;
+        const destDir = exitObj.targetDir ?? nextMap.spawn.dir;
+
+        state.player.gridX = destX;
+        state.player.gridY = destY;
+        state.player.targetGridX = destX;
+        state.player.targetGridY = destY;
+        state.player.pixelX = destX * TILE_SIZE;
+        state.player.pixelY = destY * TILE_SIZE;
+        state.player.dir = destDir;
+        state.player.isMoving = false;
+        state.player.walkFrame = 0;
+
+        updateLocationAndHUD();
+        showToast(`📍 抵達「${nextMap.name}」`);
+
+        setTimeout(() => {
+            fadeEl.classList.remove('active');
+            state.isTransitioning = false;
+        }, 220);
+    }, 320);
+}
+
+/**
+ * 彈出地圖出口確認視窗（「前往 - 銀礦灣觀景台」等）
+ */
+function promptExitConfirmation(exitObj) {
+    if (state.dialogueActive || state.isTransitioning) return;
+
+    resetJoystick();
+    state.keysHeld.clear();
+    state.pendingExitId = exitObj.id;
+
+    state.dialogueActive = true;
+    const overlay = document.getElementById('dialogue-overlay');
+    const portraitBox = document.getElementById('portrait-box');
+    const speakerEl = document.getElementById('dlg-speaker');
+    const textEl = document.getElementById('dlg-text');
+    const choicesEl = document.getElementById('dlg-choices');
+    const contEl = document.getElementById('dlg-continue');
+
+    portraitBox.style.display = 'none';
+    speakerEl.textContent = `前往 - ${exitObj.label}`;
+    textEl.textContent = exitObj.promptText;
+    choicesEl.innerHTML = '';
+    contEl.style.display = 'none';
+    overlay.classList.add('active');
+
+    const confirmBtn = document.createElement('button');
+    confirmBtn.className = 'choice-btn';
+    confirmBtn.innerHTML = `<span>▶ 確定前往</span><span class="choice-tag">傳送</span>`;
+    confirmBtn.onclick = () => {
+        const chosenExit = exitObj;
+        closeDialogue();
+        transitionToMap(chosenExit);
+    };
+
+    const cancelBtn = document.createElement('button');
+    cancelBtn.className = 'choice-btn';
+    cancelBtn.innerHTML = `<span>▶ 取消</span><span class="choice-tag">留在原地</span>`;
+    cancelBtn.onclick = () => {
+        // 稍微往反方向退開一步，避免立刻再次觸發同一出口
+        const p = state.player;
+        const backDx = exitObj.dir === 1 ? 1 : (exitObj.dir === 2 ? -1 : 0);
+        const backDy = exitObj.dir === 3 ? 1 : (exitObj.dir === 0 ? -1 : 0);
+        const bx = p.gridX + backDx;
+        const by = p.gridY + backDy;
+        if (isWalkable(bx, by)) {
+            p.gridX = bx;
+            p.gridY = by;
+            p.targetGridX = bx;
+            p.targetGridY = by;
+            p.pixelX = bx * TILE_SIZE;
+            p.pixelY = by * TILE_SIZE;
+        }
+        closeDialogue();
+    };
+
+    choicesEl.appendChild(confirmBtn);
+    choicesEl.appendChild(cancelBtn);
+}
+
+/**
+ * 觸發互動劇情對話框
+ */
+function triggerScenario(category) {
+    if (state.dialogueActive || state.isTransitioning) return;
+
+    resetJoystick();
+    state.keysHeld.clear();
+
+    if (category === 'pier') {
+        openCustomDialogue(
+            '梅窩渡輪碼頭',
+            '海風吹來陣陣鹹香味，渡輪正停泊在碼頭旁，許多單車友與旅客剛下船準備展開梅窩之旅！',
+            [
+                { label: '吹吹海風整理行裝', tag: '+10 HP', result: '看著維港以外的寧靜海景，精神為之一振！', hp: 10, money: 0 },
+                { label: '在碼頭小賣部買瓶水', tag: '-$10 / +15 HP', result: '喝了冰涼的礦泉水，準備出發探索梅窩！', hp: 15, money: -10 }
+            ],
+            'beach'
+        );
+        return;
+    }
+    if (category === 'bus') {
+        openCustomDialogue(
+            '梅窩巴士總站',
+            '巴士總站停靠著往返昂坪、大澳與梅窩各村的巴士，站牌旁貼著大嶼山路線圖。',
+            [
+                { label: '查看巴士路線圖規劃行程', tag: '+10 HP', result: '清楚掌握梅窩周邊路線，探索更有方向感！', hp: 10, money: 0 },
+                { label: '幫迷路旅客指路', tag: '+$20', result: '你熱心指點了往銀礦灣的路，旅客開心給你 $20 感謝！', hp: 0, money: 20 }
+            ],
+            'beach'
+        );
+        return;
+    }
+    if (category === 'bike') {
+        openCustomDialogue(
+            '梅窩單車租借店',
+            '老闆熱情地擦拭著一排單車：「踩單車去海濱長廊同觀景台最舒服啦！幫手送份快遞仲有賞錢！」',
+            [
+                { label: '幫單車店送一趟街坊快遞', tag: '-10 HP / +$45', result: '你順利完成快遞任務，賺取了 $45 港幣跑腿費！', hp: -10, money: 45 },
+                { label: '跟老闆請教梅窩景點', tag: '+5 HP', result: '老闆笑著說：「沿住北面條路行上去就係銀礦灣觀景台同市政區啦！」', hp: 5, money: 0 }
+            ],
+            'beach'
+        );
+        return;
+    }
+    if (category === 'isdo') {
+        openCustomDialogue(
+            '離島民政事務處梅窩分處',
+            '這裡是服務梅窩與離島居民的社區辦事處，大廳擺放著地區事務公告與梅窩生態保育展板。',
+            [
+                { label: '閱讀梅窩社區導覽展板', tag: '+15 HP', result: '認識了梅窩鄉郊文化與社區建設，感覺收穫滿滿！', hp: 15, money: 0 },
+                { label: '協助社區活動登記', tag: '-10 HP / +$25', result: '幫忙整理活動名單（-10 HP），獲贈地區感謝狀與 $25 津貼！', hp: -10, money: 25 }
+            ],
+            'waterfall'
+        );
+        return;
+    }
+    if (category === 'post_office') {
+        openCustomDialogue(
+            '梅窩郵政局',
+            '綠色的梅窩郵政局招牌在陽光下格外醒目，門外綠色郵筒靜靜等候著寄往各地的信件與明信片。',
+            [
+                { label: '挑一張離島明信片寄給自己', tag: '-$15 / +20 HP', result: '蓋上梅窩郵戳的明信片充滿紀念價值，心情愉悅 +20 HP！', hp: 20, money: -15 },
+                { label: '幫郵差整理信件包裹', tag: '-10 HP / +$30', result: '幫忙分裝郵件（-10 HP），獲得 $30 港幣小報酬！', hp: -10, money: 30 }
+            ],
+            'waterfall'
+        );
+        return;
+    }
+    if (category === 'park') {
+        openCustomDialogue(
+            '梅窩海濱公園',
+            '綠樹成蔭的梅窩海濱公園設有涼亭、長椅與水景，是街坊與旅人散步乘涼的好去處。',
+            [
+                { label: '在涼亭乘涼休息一會兒', tag: '+20 HP', result: '涼亭微風吹拂，雙腿完全放鬆，體力恢復 20 點！', hp: 20, money: 0 },
+                { label: '在公園長椅旁撿到零錢', tag: '+$25', result: '你在樹下長椅旁發現 $25 港幣零錢，順手收進口袋！', hp: 0, money: 25 }
+            ],
+            'waterfall'
+        );
+        return;
+    }
+
+    const pool = SCENARIOS[category] || SCENARIOS.beach;
+    const uncollected = pool.filter(s => !state.unlockedDex.has(s.id));
+    const chosen = uncollected.length > 0
+        ? uncollected[Math.floor(Math.random() * uncollected.length)]
+        : pool[Math.floor(Math.random() * pool.length)];
+
+    drawPortrait(category);
+    openCustomDialogue(chosen.speaker, chosen.text, chosen.choices, category, chosen);
+}
+
+function openCustomDialogue(speaker, text, choices, portraitType, scenarioObj = null) {
+    state.dialogueActive = true;
+    state.pendingExitId = null;
+
+    const overlay = document.getElementById('dialogue-overlay');
+    const speakerEl = document.getElementById('dlg-speaker');
+    const textEl = document.getElementById('dlg-text');
+    const choicesEl = document.getElementById('dlg-choices');
+    const contEl = document.getElementById('dlg-continue');
+
+    speakerEl.textContent = speaker;
+    textEl.textContent = '';
+    choicesEl.innerHTML = '';
+    contEl.style.display = 'none';
+    overlay.classList.add('active');
+
+    let idx = 0;
+    clearInterval(state.typingTimer);
+    state.typingTimer = setInterval(() => {
+        textEl.textContent += text[idx];
+        idx++;
+        if (idx >= text.length) {
+            clearInterval(state.typingTimer);
+            renderDialogueChoices(choices, scenarioObj);
+        }
+    }, 22);
+
+    textEl.onclick = () => {
+        if (idx < text.length) {
+            clearInterval(state.typingTimer);
+            textEl.textContent = text;
+            idx = text.length;
+            renderDialogueChoices(choices, scenarioObj);
+        }
+    };
+}
+
+function renderDialogueChoices(choices, scenarioObj) {
+    const choicesEl = document.getElementById('dlg-choices');
+    choicesEl.innerHTML = '';
+
+    choices.forEach(c => {
+        const btn = document.createElement('button');
+        btn.className = 'choice-btn';
+        btn.innerHTML = `<span>▶ ${c.label}</span><span class="choice-tag">${c.tag}</span>`;
+        btn.onclick = () => {
+            if (c.money < 0 && state.money + c.money < 0) {
+                showToast('💸 港幣不足！試試看其他選項或去探索賺零用錢吧！');
+                return;
+            }
+
+            state.hp = Math.max(10, Math.min(state.maxHp, state.hp + c.hp));
+            state.money = Math.max(0, state.money + c.money);
+
+            let feedback = [];
+            if (c.hp > 0) feedback.push(`+${c.hp} HP`);
+            if (c.hp < 0) feedback.push(`${c.hp} HP`);
+            if (c.money > 0) feedback.push(`+$${c.money} HKD`);
+            if (c.money < 0) feedback.push(`-$${Math.abs(c.money)} HKD`);
+
+            let newUnlock = false;
+            if (scenarioObj && !state.unlockedDex.has(scenarioObj.id)) {
+                state.unlockedDex.add(scenarioObj.id);
+                newUnlock = true;
+            }
+
+            updateLocationAndHUD();
+            if (newUnlock) {
+                showToast(`📖 解鎖新圖鑑：【${scenarioObj.title}】(${feedback.join(' / ')})`);
+            } else if (feedback.length > 0) {
+                showToast(feedback.join(' ｜ '));
+            }
+
+            choicesEl.innerHTML = '';
+            const textEl = document.getElementById('dlg-text');
+            textEl.textContent = c.result;
+            const contEl = document.getElementById('dlg-continue');
+            contEl.style.display = 'block';
+            contEl.onclick = closeDialogue;
+            document.getElementById('dialogue-box').onclick = (e) => {
+                if (e.target.tagName !== 'BUTTON') closeDialogue();
+            };
+        };
+        choicesEl.appendChild(btn);
+    });
+}
+
+function closeDialogue() {
+    state.dialogueActive = false;
+    state.pendingExitId = null;
+    document.getElementById('dialogue-overlay').classList.remove('active');
+    document.getElementById('portrait-box').style.display = 'none';
+    document.getElementById('dialogue-box').onclick = null;
+}
+
+/**
+ * 渲染圖鑑列表
+ */
+function renderDexModal() {
+    const listEl = document.getElementById('dex-list');
+    const progEl = document.getElementById('dex-progress');
+    progEl.textContent = `(${state.unlockedDex.size}/12 已解鎖)`;
+    listEl.innerHTML = '';
+
+    ALL_DEX_ENTRIES.forEach((item, index) => {
+        const isUnlocked = state.unlockedDex.has(item.id);
+        const card = document.createElement('div');
+        card.className = `dex-item ${isUnlocked ? 'unlocked' : 'locked'}`;
+        card.innerHTML = `
+            <div class="dex-item-header">
+                <span class="dex-item-title">#${String(index + 1).padStart(2, '0')} ${isUnlocked ? item.title : '？？？'}</span>
+                <span class="dex-badge">${item.category}</span>
+            </div>
+            <div class="dex-desc">${isUnlocked ? item.text : '尚未探索此梅窩奇遇，前往對應區域走走看吧！'}</div>
+        `;
+        listEl.appendChild(card);
+    });
+}
+
+document.getElementById('btn-open-dex').onclick = () => {
+    resetJoystick();
+    renderDexModal();
+    document.getElementById('dex-modal').classList.add('active');
+};
+
+document.getElementById('btn-close-dex').onclick = () => {
+    document.getElementById('dex-modal').classList.remove('active');
+};
+
+/**
+ * =========================================================================
+ * 核心輸入控制系統：
+ * 1. 全螢幕滑動推動（Touch Drag / Floating Joystick）移動
+ * 2. 輕點（Tap）建築物、NPC 或「！」氣泡觸發互動
+ * =========================================================================
+ */
+const DRAG_THRESHOLD = 12;
+
+function resetJoystick() {
+    state.joystick.active = false;
+    state.joystick.pointerId = null;
+    state.joystick.dx = 0;
+    state.joystick.dy = 0;
+    state.joystick.hasDragged = false;
+}
+
+function handleTapInteraction(clientX, clientY) {
+    if (state.dialogueActive || state.isTransitioning || document.getElementById('dex-modal').classList.contains('active')) {
+        return;
+    }
+
+    const map = getCurrentMap();
+    const rect = canvas.getBoundingClientRect();
+    const screenX = clientX - rect.left;
+    const screenY = clientY - rect.top;
+
+    const worldX = (screenX - state.camera.x) / state.camera.zoom;
+    const worldY = (screenY - state.camera.y) / state.camera.zoom;
+    const gx = Math.floor(worldX / TILE_SIZE);
+    const gy = Math.floor(worldY / TILE_SIZE);
+
+    if (gx < 0 || gx >= MAP_COLS || gy < 0 || gy >= MAP_ROWS) return;
+
+    // 1. 檢查場上水牛 NPC
+    for (const npc of map.npcs) {
+        const hitNpc = (gx === npc.x && (gy === npc.y || gy === npc.y - 1));
+        if (hitNpc) {
+            const dist = Math.hypot(state.player.gridX - npc.x, state.player.gridY - npc.y);
+            if (dist <= 2.6) {
+                triggerScenario('buffalo');
+            } else {
+                showToast(`🐂 距離「${npc.name}」太遠了，滑動螢幕走近一點再點吧！`);
+            }
+            return;
+        }
+    }
+
+    // 2. 檢查建築物與互動熱區
+    for (const b of map.buildings) {
+        const inBuildingBox = (gx >= b.x && gx < b.x + b.w && gy >= b.y - 1 && gy < b.y + b.h);
+        const onInteractTile = (gx === b.interactX && gy === b.interactY);
+        if (inBuildingBox || onInteractTile) {
+            const dist = Math.hypot(state.player.gridX - b.interactX, state.player.gridY - b.interactY);
+            if (dist <= 3.0) {
+                triggerScenario(b.type);
+            } else {
+                showToast(`📍 距離「${b.name}」還有點距離，滑動螢幕走近再點擊互動！`);
+            }
+            return;
+        }
+    }
+}
+
+canvas.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    if (state.dialogueActive || state.isTransitioning || document.getElementById('dex-modal').classList.contains('active')) {
+        return;
+    }
+    if (state.joystick.active) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    state.joystick.active = true;
+    state.joystick.pointerId = e.pointerId;
+    state.joystick.originX = x;
+    state.joystick.originY = y;
+    state.joystick.currentX = x;
+    state.joystick.currentY = y;
+    state.joystick.dx = 0;
+    state.joystick.dy = 0;
+    state.joystick.hasDragged = false;
+
+    try {
+        canvas.setPointerCapture(e.pointerId);
+    } catch (_) {}
+});
+
+canvas.addEventListener('pointermove', (e) => {
+    if (!state.joystick.active || e.pointerId !== state.joystick.pointerId) return;
+    e.preventDefault();
+
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    state.joystick.currentX = x;
+    state.joystick.currentY = y;
+
+    const rawDx = x - state.joystick.originX;
+    const rawDy = y - state.joystick.originY;
+    const dist = Math.hypot(rawDx, rawDy);
+
+    if (dist >= DRAG_THRESHOLD) {
+        state.joystick.hasDragged = true;
+        state.joystick.dx = rawDx;
+        state.joystick.dy = rawDy;
+    } else {
+        state.joystick.dx = 0;
+        state.joystick.dy = 0;
+    }
+});
+
+function onPointerEnd(e) {
+    if (!state.joystick.active || e.pointerId !== state.joystick.pointerId) return;
+    e.preventDefault();
+
+    const wasTap = !state.joystick.hasDragged;
+    const clientX = e.clientX;
+    const clientY = e.clientY;
+
+    resetJoystick();
+
+    if (wasTap) {
+        handleTapInteraction(clientX, clientY);
+    }
+}
+
+canvas.addEventListener('pointerup', onPointerEnd);
+canvas.addEventListener('pointercancel', onPointerEnd);
+
+window.addEventListener('keydown', (e) => {
+    const key = e.key.toLowerCase();
+    if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'w', 'a', 's', 'd'].includes(key)) {
+        state.keysHeld.add(key);
+    }
+});
+
+window.addEventListener('keyup', (e) => {
+    const key = e.key.toLowerCase();
+    state.keysHeld.delete(key);
+});
+
+window.addEventListener('blur', () => {
+    resetJoystick();
+    state.keysHeld.clear();
+});
+
+function getActiveInputDirection() {
+    if (state.dialogueActive || state.isTransitioning || document.getElementById('dex-modal').classList.contains('active')) {
+        return null;
+    }
+
+    if (state.joystick.active && state.joystick.hasDragged) {
+        const { dx, dy } = state.joystick;
+        if (Math.hypot(dx, dy) >= DRAG_THRESHOLD) {
+            if (Math.abs(dx) > Math.abs(dy)) {
+                return dx > 0 ? { dx: 1, dy: 0, dir: 2 } : { dx: -1, dy: 0, dir: 1 };
+            } else {
+                return dy > 0 ? { dx: 0, dy: 1, dir: 0 } : { dx: 0, dy: -1, dir: 3 };
+            }
+        }
+    }
+
+    if (state.keysHeld.has('arrowup') || state.keysHeld.has('w')) return { dx: 0, dy: -1, dir: 3 };
+    if (state.keysHeld.has('arrowdown') || state.keysHeld.has('s')) return { dx: 0, dy: 1, dir: 0 };
+    if (state.keysHeld.has('arrowleft') || state.keysHeld.has('a')) return { dx: -1, dy: 0, dir: 1 };
+    if (state.keysHeld.has('arrowright') || state.keysHeld.has('d')) return { dx: 1, dy: 0, dir: 2 };
+
+    return null;
+}
+
+/**
+ * 每一步踏上新格子時的事件檢查
+ */
+function onStepCompleted(gx, gy) {
+    const map = getCurrentMap();
+    const terrain = map.terrain[gy][gx];
+
+    if (terrain === 1) {
+        state.footprints.push({
+            x: gx * TILE_SIZE + TILE_SIZE * 0.5,
+            y: gy * TILE_SIZE + TILE_SIZE * 0.75,
+            alpha: 0.65
+        });
+    }
+
+    if (terrain === 3) {
+        if (Math.random() < 0.25) {
+            triggerScenario('buffalo');
+            return;
+        }
+    }
+}
+
+/**
+ * 更新遊戲邏輯（含出口傳送點推動確認觸發）
+ */
+function update(dt) {
+    state.time += dt;
+
+    if (state.isTransitioning) return;
+
+    const p = state.player;
+    const speed = 195 * dt;
+
+    if (p.isMoving) {
+        const targetPx = p.targetGridX * TILE_SIZE;
+        const targetPy = p.targetGridY * TILE_SIZE;
+        const dx = targetPx - p.pixelX;
+        const dy = targetPy - p.pixelY;
+        const dist = Math.hypot(dx, dy);
+
+        if (dist <= speed) {
+            p.pixelX = targetPx;
+            p.pixelY = targetPy;
+            p.gridX = p.targetGridX;
+            p.gridY = p.targetGridY;
+            p.isMoving = false;
+            onStepCompleted(p.gridX, p.gridY);
+
+            const nextInput = getActiveInputDirection();
+            if (nextInput && !state.dialogueActive) {
+                p.dir = nextInput.dir;
+                const exitHere = getExitAt(p.gridX, p.gridY);
+                if (exitHere && exitHere.dir === nextInput.dir && state.pendingExitId !== exitHere.id) {
+                    promptExitConfirmation(exitHere);
+                    return;
+                }
+
+                const nx = p.gridX + nextInput.dx;
+                const ny = p.gridY + nextInput.dy;
+                if (isWalkable(nx, ny)) {
+                    p.targetGridX = nx;
+                    p.targetGridY = ny;
+                    p.isMoving = true;
+                }
+            }
+        } else {
+            p.pixelX += (dx / dist) * speed;
+            p.pixelY += (dy / dist) * speed;
+            p.walkFrame += dt * 10;
+        }
+    } else {
+        const input = getActiveInputDirection();
+        if (input) {
+            p.dir = input.dir;
+
+            // 若站在出口傳送點上並繼續朝出口方向推動，彈出確認視窗
+            const exitHere = getExitAt(p.gridX, p.gridY);
+            if (exitHere && exitHere.dir === input.dir && state.pendingExitId !== exitHere.id) {
+                promptExitConfirmation(exitHere);
+                return;
+            }
+
+            const nx = p.gridX + input.dx;
+            const ny = p.gridY + input.dy;
+            if (isWalkable(nx, ny)) {
+                p.targetGridX = nx;
+                p.targetGridY = ny;
+                p.isMoving = true;
+                p.walkFrame += dt * 10;
+            } else {
+                p.walkFrame += dt * 6;
+            }
+        } else {
+            p.walkFrame = 0;
+        }
+    }
+
+    for (let i = state.footprints.length - 1; i >= 0; i--) {
+        state.footprints[i].alpha -= dt * 0.14;
+        if (state.footprints[i].alpha <= 0) {
+            state.footprints.splice(i, 1);
+        }
+    }
+
+    for (const pt of state.particles) {
+        pt.x += pt.vx;
+        pt.y += pt.vy + Math.sin(state.time * 2 + pt.x * 0.05) * 0.2;
+        if (pt.x > MAP_COLS * TILE_SIZE) pt.x = 0;
+        if (pt.y > MAP_ROWS * TILE_SIZE) pt.y = 0;
+        if (pt.y < 0) pt.y = MAP_ROWS * TILE_SIZE;
+    }
+}
+
+/**
+ * 繪製單一 2.5D 地形格
+ */
+function drawTile(gx, gy, terrain) {
+    const x = gx * TILE_SIZE;
+    const y = gy * TILE_SIZE;
+    const wave = Math.sin(state.time * 3 + gx * 0.7 + gy * 0.5);
+
+    if (terrain === 0) {
+        ctx.fillStyle = '#0284c7';
+        ctx.fillRect(x, y, TILE_SIZE + 0.5, TILE_SIZE + 0.5);
+        ctx.fillStyle = 'rgba(186, 230, 253, 0.45)';
+        const offset = wave * 4;
+        ctx.fillRect(x + 8 + offset, y + 14, 18, 3);
+        ctx.fillRect(x + 20 - offset, y + 32, 14, 2.5);
+    } else if (terrain === 1) {
+        ctx.fillStyle = '#fde68a';
+        ctx.fillRect(x, y, TILE_SIZE + 0.5, TILE_SIZE + 0.5);
+        ctx.fillStyle = '#f59e0b';
+        if ((gx + gy) % 2 === 0) {
+            ctx.fillRect(x + 12, y + 16, 3, 2);
+            ctx.fillRect(x + 32, y + 34, 3, 2);
+        }
+    } else if (terrain === 2 || terrain === 3) {
+        ctx.fillStyle = (gx + gy) % 2 === 0 ? '#4ade80' : '#38d373';
+        ctx.fillRect(x, y, TILE_SIZE + 0.5, TILE_SIZE + 0.5);
+
+        if ((gx * 7 + gy * 13) % 7 === 0) {
+            ctx.fillStyle = '#fef08a';
+            ctx.fillRect(x + 14, y + 20, 4, 4);
+        }
+
+        if (terrain === 3) {
+            const sway = Math.sin(state.time * 2.8 + gx * 0.9 + gy * 0.6) * 3;
+            ctx.fillStyle = '#15803d';
+            ctx.fillRect(x + 4, y + 18, TILE_SIZE - 8, TILE_SIZE - 20);
+            ctx.fillStyle = '#166534';
+            for (let i = 0; i < 4; i++) {
+                const bx = x + 6 + i * 10;
+                ctx.beginPath();
+                ctx.moveTo(bx, y + 24);
+                ctx.lineTo(bx + 4 + sway, y + 6);
+                ctx.lineTo(bx + 8, y + 24);
+                ctx.fill();
+            }
+        }
+    } else if (terrain === 4) {
+        ctx.fillStyle = '#cbd5e1';
+        ctx.fillRect(x, y, TILE_SIZE + 0.5, TILE_SIZE + 0.5);
+        ctx.strokeStyle = '#94a3b8';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x + 2, y + 2, TILE_SIZE - 4, TILE_SIZE - 4);
+    } else if (terrain === 5) {
+        ctx.fillStyle = '#475569';
+        ctx.fillRect(x, y, TILE_SIZE + 0.5, TILE_SIZE + 0.5);
+        ctx.fillStyle = '#64748b';
+        ctx.fillRect(x + 4, y + 4, TILE_SIZE - 8, TILE_SIZE * 0.6);
+        ctx.fillStyle = '#1e293b';
+        ctx.fillRect(x, y + TILE_SIZE * 0.72, TILE_SIZE, TILE_SIZE * 0.28);
+    } else if (terrain === 6) {
+        ctx.fillStyle = '#0ea5e9';
+        ctx.fillRect(x, y, TILE_SIZE + 0.5, TILE_SIZE + 0.5);
+        ctx.fillStyle = 'rgba(224, 242, 254, 0.65)';
+        const ripple = Math.sin(state.time * 4 + gx + gy) * 3;
+        ctx.beginPath();
+        ctx.arc(x + 24, y + 24, 11 + ripple, 0, Math.PI * 2);
+        ctx.fill();
+    } else if (terrain === 7) {
+        ctx.fillStyle = '#92400e';
+        ctx.fillRect(x, y, TILE_SIZE + 0.5, TILE_SIZE + 0.5);
+        ctx.fillStyle = '#b45309';
+        for (let py = 2; py < TILE_SIZE; py += 12) {
+            ctx.fillRect(x + 2, y + py, TILE_SIZE - 4, 8);
+        }
+    } else if (terrain === 8) {
+        ctx.fillStyle = '#334155';
+        ctx.fillRect(x, y, TILE_SIZE + 0.5, TILE_SIZE + 0.5);
+        if (gx % 3 === 0 && gy % 4 === 0) {
+            ctx.fillStyle = 'rgba(250, 204, 21, 0.45)';
+            ctx.fillRect(x + 18, y + 22, 12, 3);
+        }
+    }
+}
+
+/**
+ * 繪製出口傳送點上的明顯白色／發光箭頭地板標記
+ */
+function drawExitMarkers() {
+    const map = getCurrentMap();
+    const pulse = 0.65 + Math.sin(state.time * 5) * 0.35;
+
+    for (const ex of map.exits) {
+        for (let r = ex.y; r < ex.y + ex.h; r++) {
+            for (let c = ex.x; c < ex.x + ex.w; c++) {
+                const cx = (c + 0.5) * TILE_SIZE;
+                const cy = (r + 0.5) * TILE_SIZE;
+
+                ctx.save();
+                ctx.translate(cx, cy);
+                // dir: 0下, 1左, 2右, 3上
+                if (ex.dir === 3) ctx.rotate(0);
+                else if (ex.dir === 0) ctx.rotate(Math.PI);
+                else if (ex.dir === 2) ctx.rotate(Math.PI / 2);
+                else if (ex.dir === 1) ctx.rotate(-Math.PI / 2);
+
+                const shift = Math.sin(state.time * 6) * 4;
+                ctx.translate(0, shift);
+
+                ctx.shadowColor = '#38bdf8';
+                ctx.shadowBlur = 12;
+                ctx.fillStyle = `rgba(255, 255, 255, ${pulse})`;
+                ctx.strokeStyle = '#0284c7';
+                ctx.lineWidth = 2;
+
+                ctx.beginPath();
+                ctx.moveTo(0, -14);
+                ctx.lineTo(13, 4);
+                ctx.lineTo(5, 4);
+                ctx.lineTo(5, 14);
+                ctx.lineTo(-5, 14);
+                ctx.lineTo(-5, 4);
+                ctx.lineTo(-13, 4);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+
+                ctx.restore();
+            }
+        }
+
+        // 出口上方小標籤提示目的地名稱
+        const labelX = (ex.x + ex.w / 2) * TILE_SIZE;
+        const labelY = (ex.y + ex.h / 2) * TILE_SIZE + (ex.dir === 3 ? 28 : -24);
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+        ctx.strokeStyle = '#7dd3fc';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.roundRect(labelX - 68, labelY - 11, 136, 20, 8);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = '#e0f2fe';
+        ctx.font = 'bold 11px "Noto Sans TC", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(`➔ ${ex.label}`, labelX, labelY + 3);
+    }
+}
+
+/**
+ * 繪製 2.5D 立體建築物
+ */
+function drawBuilding(b) {
+    const px = b.x * TILE_SIZE;
+    const py = b.y * TILE_SIZE;
+    const pw = b.w * TILE_SIZE;
+    const ph = b.h * TILE_SIZE;
+
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.35)';
+    ctx.fillRect(px + 8, py + 10, pw, ph);
+
+    const wallHeight = Math.max(36, ph * 0.45);
+
+    ctx.fillStyle = b.wallColor;
+    ctx.fillRect(px + 2, py + ph - wallHeight, pw - 4, wallHeight);
+
+    ctx.fillStyle = '#1e293b';
+    ctx.fillRect(px + pw * 0.44, py + ph - wallHeight * 0.72, pw * 0.12, wallHeight * 0.72);
+    ctx.fillStyle = '#bae6fd';
+    ctx.fillRect(px + pw * 0.14, py + ph - wallHeight * 0.62, pw * 0.16, wallHeight * 0.38);
+    ctx.fillRect(px + pw * 0.70, py + ph - wallHeight * 0.62, pw * 0.16, wallHeight * 0.38);
+
+    ctx.fillStyle = b.roofColor;
+    ctx.beginPath();
+    ctx.moveTo(px - 4, py + ph - wallHeight + 2);
+    ctx.lineTo(px + 12, py - 10);
+    ctx.lineTo(px + pw - 12, py - 10);
+    ctx.lineTo(px + pw + 4, py + ph - wallHeight + 2);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.strokeStyle = b.trimColor;
+    ctx.lineWidth = 3;
+    ctx.stroke();
+
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
+    ctx.beginPath();
+    ctx.roundRect(px + 6, py + 4, pw - 12, 20, 6);
+    ctx.fill();
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 11.5px "Noto Sans TC", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(b.name, px + pw / 2, py + 18);
+}
+
+/**
+ * 繪製場景裝飾（渡輪、巴士站牌、郵筒、涼亭、長椅、欄杆、樹木與單車）
+ */
+function drawProp(p) {
+    const x = p.x * TILE_SIZE;
+    const y = p.y * TILE_SIZE;
+
+    if (p.type === 'ferry') {
+        const bob = Math.sin(state.time * 2) * 2;
+        ctx.fillStyle = 'rgba(0,0,0,0.25)';
+        ctx.beginPath();
+        ctx.ellipse(x + 96, y + 66, 86, 18, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 渡輪船身
+        ctx.fillStyle = '#f8fafc';
+        ctx.beginPath();
+        ctx.moveTo(x + 14, y + 36 + bob);
+        ctx.lineTo(x + 178, y + 36 + bob);
+        ctx.lineTo(x + 162, y + 58 + bob);
+        ctx.lineTo(x + 28, y + 58 + bob);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = '#2563eb';
+        ctx.fillRect(x + 26, y + 46 + bob, 138, 6);
+
+        // 船艙與煙囪
+        ctx.fillStyle = '#e2e8f0';
+        ctx.fillRect(x + 46, y + 20 + bob, 96, 16);
+        ctx.fillStyle = '#ef4444';
+        ctx.fillRect(x + 88, y + 8 + bob, 14, 12);
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 11px "Noto Sans TC", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('⚓ 梅窩渡輪', x + 96, y + 4);
+    } else if (p.type === 'bus_stop') {
+        ctx.fillStyle = '#64748b';
+        ctx.fillRect(x + 22, y + 12, 4, 30);
+        ctx.fillStyle = '#facc15';
+        ctx.strokeStyle = '#0284c7';
+        ctx.lineWidth = 2;
+        ctx.fillRect(x + 12, y + 6, 24, 16);
+        ctx.strokeRect(x + 12, y + 6, 24, 16);
+        ctx.fillStyle = '#0f172a';
+        ctx.font = 'bold 9px "Noto Sans TC", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('BUS', x + 24, y + 17);
+    } else if (p.type === 'mailbox') {
+        // 梅窩郵政局綠色郵筒
+        ctx.fillStyle = 'rgba(0,0,0,0.25)';
+        ctx.beginPath();
+        ctx.ellipse(x + 24, y + 40, 10, 4, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#15803d';
+        ctx.fillRect(x + 14, y + 16, 20, 24);
+        ctx.beginPath();
+        ctx.arc(x + 24, y + 16, 10, Math.PI, 0);
+        ctx.fill();
+        ctx.fillStyle = '#bbf7d0';
+        ctx.fillRect(x + 18, y + 22, 12, 3);
+    } else if (p.type === 'pavilion') {
+        // 海濱公園涼亭
+        ctx.fillStyle = 'rgba(0,0,0,0.28)';
+        ctx.beginPath();
+        ctx.ellipse(x + 24, y + 40, 20, 8, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#78350f';
+        ctx.fillRect(x + 10, y + 20, 4, 20);
+        ctx.fillRect(x + 34, y + 20, 4, 20);
+        ctx.fillStyle = '#0d9488';
+        ctx.beginPath();
+        ctx.moveTo(x + 2, y + 22);
+        ctx.lineTo(x + 24, y + 6);
+        ctx.lineTo(x + 46, y + 22);
+        ctx.closePath();
+        ctx.fill();
+    } else if (p.type === 'bench') {
+        ctx.fillStyle = '#92400e';
+        ctx.fillRect(x + 8, y + 24, 32, 8);
+        ctx.fillStyle = '#1e293b';
+        ctx.fillRect(x + 10, y + 32, 4, 6);
+        ctx.fillRect(x + 34, y + 32, 4, 6);
+    } else if (p.type === 'railing') {
+        ctx.fillStyle = '#cbd5e1';
+        ctx.fillRect(x + 2, y + 22, TILE_SIZE - 4, 4);
+        ctx.fillStyle = '#64748b';
+        ctx.fillRect(x + 6, y + 22, 4, 14);
+        ctx.fillRect(x + TILE_SIZE - 10, y + 22, 4, 14);
+    } else if (p.type === 'palm') {
+        ctx.fillStyle = 'rgba(0,0,0,0.25)';
+        ctx.beginPath();
+        ctx.ellipse(x + 28, y + 40, 14, 6, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#92400e';
+        ctx.fillRect(x + 21, y + 14, 6, 26);
+        ctx.fillStyle = '#16a34a';
+        ctx.beginPath();
+        ctx.ellipse(x + 14, y + 14, 14, 5, -0.3, 0, Math.PI * 2);
+        ctx.ellipse(x + 34, y + 14, 14, 5, 0.3, 0, Math.PI * 2);
+        ctx.ellipse(x + 24, y + 8, 12, 6, 0, 0, Math.PI * 2);
+        ctx.fill();
+    } else if (p.type === 'tree') {
+        ctx.fillStyle = 'rgba(0,0,0,0.28)';
+        ctx.beginPath();
+        ctx.ellipse(x + 26, y + 42, 18, 7, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#78350f';
+        ctx.fillRect(x + 20, y + 24, 8, 18);
+        ctx.fillStyle = '#15803d';
+        ctx.beginPath();
+        ctx.arc(x + 24, y + 16, 18, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#22c55e';
+        ctx.beginPath();
+        ctx.arc(x + 20, y + 12, 12, 0, Math.PI * 2);
+        ctx.fill();
+    } else if (p.type === 'bikes') {
+        for (let i = 0; i < 3; i++) {
+            const bx = x + 6 + i * 13;
+            const by = y + 26;
+            ctx.strokeStyle = '#ef4444';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(bx, by + 10, 5, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.fillStyle = '#3b82f6';
+            ctx.fillRect(bx - 2, by, 6, 8);
+        }
+    }
+}
+
+/**
+ * 繪製精緻像素主角
+ */
+function drawPlayer() {
+    const p = state.player;
+    const x = p.pixelX;
+    const y = p.pixelY;
+    const bob = p.walkFrame > 0 ? Math.abs(Math.sin(p.walkFrame)) * 4 : 0;
+    const stepOffset = p.walkFrame > 0 ? Math.sin(p.walkFrame) * 4 : 0;
+
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.38)';
+    ctx.beginPath();
+    ctx.ellipse(x + 24, y + 42, 13, 5, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#1e293b';
+    ctx.fillRect(x + 16, y + 32 - (stepOffset > 0 ? stepOffset * 0.5 : 0), 6, 10);
+    ctx.fillRect(x + 26, y + 32 + (stepOffset < 0 ? stepOffset * 0.5 : 0), 6, 10);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(x + 15, y + 39, 7, 3);
+    ctx.fillRect(x + 26, y + 39, 7, 3);
+
+    if (p.dir !== 0) {
+        ctx.fillStyle = '#f97316';
+        const bagX = p.dir === 1 ? x + 28 : (p.dir === 2 ? x + 10 : x + 14);
+        const bagW = p.dir === 3 ? 20 : 8;
+        ctx.fillRect(bagX, y + 18 - bob, bagW, 14);
+    }
+
+    ctx.fillStyle = '#2563eb';
+    ctx.fillRect(x + 14, y + 18 - bob, 20, 15);
+    ctx.fillStyle = '#f8fafc';
+    ctx.fillRect(x + 21, y + 18 - bob, 6, 15);
+
+    ctx.fillStyle = '#fed7aa';
+    ctx.fillRect(x + 13, y + 3 - bob, 22, 16);
+
+    ctx.fillStyle = '#0f172a';
+    ctx.fillRect(x + 12, y + 1 - bob, 24, 7);
+    ctx.fillStyle = '#ef4444';
+    ctx.fillRect(x + 13, y - 1 - bob, 22, 5);
+
+    ctx.fillStyle = '#0f172a';
+    if (p.dir === 0) {
+        ctx.fillRect(x + 17, y + 10 - bob, 3, 4);
+        ctx.fillRect(x + 28, y + 10 - bob, 3, 4);
+    } else if (p.dir === 1) {
+        ctx.fillRect(x + 15, y + 10 - bob, 3, 4);
+    } else if (p.dir === 2) {
+        ctx.fillRect(x + 30, y + 10 - bob, 3, 4);
+    }
+}
+
+/**
+ * 繪製場上水牛 NPC
+ */
+function drawFieldNPC(npc) {
+    const x = npc.x * TILE_SIZE;
+    const y = npc.y * TILE_SIZE;
+    const breathe = Math.sin(state.time * 2.5) * 1.5;
+
+    ctx.fillStyle = 'rgba(0,0,0,0.35)';
+    ctx.beginPath();
+    ctx.ellipse(x + 24, y + 40, 18, 6, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#475569';
+    ctx.fillRect(x + 8, y + 18 - breathe, 32, 18);
+    ctx.fillStyle = '#f1f5f9';
+    ctx.fillRect(x + 4, y + 10 - breathe, 6, 4);
+    ctx.fillRect(x + 38, y + 10 - breathe, 6, 4);
+    ctx.fillStyle = '#334155';
+    ctx.fillRect(x + 10, y + 12 - breathe, 28, 16);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(x + 14, y + 16 - breathe, 4, 4);
+    ctx.fillRect(x + 30, y + 16 - breathe, 4, 4);
+}
+
+/**
+ * 繪製互動熱點上的「！」感嘆號氣泡
+ */
+function drawInteractionBubbles() {
+    const map = getCurrentMap();
+    const p = state.player;
+    const targets = [
+        ...map.buildings.map(b => ({
+            x: (b.x + b.w / 2) * TILE_SIZE,
+            y: b.y * TILE_SIZE - 8,
+            ix: b.interactX,
+            iy: b.interactY
+        })),
+        ...map.npcs.map(n => ({
+            x: (n.x + 0.5) * TILE_SIZE,
+            y: n.y * TILE_SIZE - 6,
+            ix: n.x,
+            iy: n.y
+        }))
+    ];
+
+    for (const t of targets) {
+        const dist = Math.hypot(p.gridX - t.ix, p.gridY - t.iy);
+        const isNear = dist <= 3.0;
+        const floatY = Math.sin(state.time * 5) * (isNear ? 4 : 1.5);
+
+        ctx.fillStyle = isNear ? '#fef08a' : 'rgba(255, 255, 255, 0.85)';
+        ctx.strokeStyle = isNear ? '#dc2626' : '#2563eb';
+        ctx.lineWidth = 2;
+
+        const bx = t.x - 11;
+        const by = t.y - 22 + floatY;
+        ctx.beginPath();
+        ctx.roundRect(bx, by, 22, 20, 6);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = isNear ? '#dc2626' : '#1d4ed8';
+        ctx.font = '900 14px "Noto Sans TC", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('!', t.x, by + 15);
+    }
+}
+
+/**
+ * 繪製浮動方向搖桿指示器
+ */
+function drawFloatingJoystick() {
+    const joy = state.joystick;
+    if (!joy.active || !joy.hasDragged) return;
+
+    const maxRadius = 46;
+    const rawDist = Math.hypot(joy.dx, joy.dy);
+    const clampedDist = Math.min(rawDist, maxRadius);
+    const angle = Math.atan2(joy.dy, joy.dx);
+
+    const knobX = joy.originX + Math.cos(angle) * clampedDist;
+    const knobY = joy.originY + Math.sin(angle) * clampedDist;
+
+    ctx.save();
+
+    ctx.beginPath();
+    ctx.arc(joy.originX, joy.originY, maxRadius, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.35)';
+    ctx.fill();
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.55)';
+    ctx.stroke();
+
+    const dirs = [
+        { x: 0, y: -maxRadius + 8 },
+        { x: 0, y: maxRadius - 8 },
+        { x: -maxRadius + 8, y: 0 },
+        { x: maxRadius - 8, y: 0 }
+    ];
+    ctx.fillStyle = 'rgba(125, 211, 252, 0.7)';
+    for (const d of dirs) {
+        ctx.beginPath();
+        ctx.arc(joy.originX + d.x, joy.originY + d.y, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    ctx.beginPath();
+    ctx.arc(knobX, knobY, 18, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(56, 189, 248, 0.65)';
+    ctx.fill();
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = '#ffffff';
+    ctx.stroke();
+
+    ctx.restore();
+}
+
+/**
+ * 主渲染迴圈（主角置中鏡頭跟隨）
+ */
+function render() {
+    const map = getCurrentMap();
+    const dpr = window.devicePixelRatio || 1;
+    const width = canvas.clientWidth;
+    const height = canvas.clientHeight;
+
+    if (canvas.width !== width * dpr || canvas.height !== height * dpr) {
+        canvas.width = width * dpr;
+        canvas.height = height * dpr;
+    }
+
+    ctx.save();
+    ctx.scale(dpr, dpr);
+
+    ctx.fillStyle = '#0369a1';
+    ctx.fillRect(0, 0, width, height);
+
+    const worldW = MAP_COLS * TILE_SIZE;
+    const worldH = MAP_ROWS * TILE_SIZE;
+    const zoom = width < 600 ? 1.15 : 1.05;
+    state.camera.zoom = zoom;
+
+    // 鏡頭以主角為中心跟隨，並限制在 60x45 地圖邊界內
+    const targetCamX = width / 2 - (state.player.pixelX + TILE_SIZE / 2) * zoom;
+    const targetCamY = height / 2 - (state.player.pixelY + TILE_SIZE / 2) * zoom;
+    state.camera.x = Math.min(0, Math.max(width - worldW * zoom, targetCamX));
+    state.camera.y = Math.min(0, Math.max(height - worldH * zoom, targetCamY));
+
+    ctx.save();
+    ctx.translate(state.camera.x, state.camera.y);
+    ctx.scale(zoom, zoom);
+
+    // 1. 繪製 60x45 地形格
+    for (let gy = 0; gy < MAP_ROWS; gy++) {
+        for (let gx = 0; gx < MAP_COLS; gx++) {
+            drawTile(gx, gy, map.terrain[gy][gx]);
+        }
+    }
+
+    // 2. 繪製出口傳送點發光箭頭地板標記
+    drawExitMarkers();
+
+    // 3. 繪製沙灘腳印
+    for (const fp of state.footprints) {
+        ctx.fillStyle = `rgba(180, 83, 9, ${fp.alpha * 0.45})`;
+        ctx.beginPath();
+        ctx.ellipse(fp.x - 4, fp.y, 3, 5, 0, 0, Math.PI * 2);
+        ctx.ellipse(fp.x + 4, fp.y - 3, 3, 5, 0, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    // 4. 依 Y 軸深度排序繪製建築、裝飾、水牛與主角
+    const renderables = [
+        ...map.buildings.map(b => ({ y: (b.y + b.h) * TILE_SIZE, draw: () => drawBuilding(b) })),
+        ...map.props.map(p => ({ y: (p.y + (p.type === 'ferry' ? 2 : 1)) * TILE_SIZE, draw: () => drawProp(p) })),
+        ...map.npcs.map(n => ({ y: (n.y + 1) * TILE_SIZE, draw: () => drawFieldNPC(n) })),
+        { y: state.player.pixelY + TILE_SIZE, draw: () => drawPlayer() }
+    ];
+
+    renderables.sort((a, b) => a.y - b.y);
+    for (const item of renderables) {
+        item.draw();
+    }
+
+    // 5. 繪製互動「！」氣泡
+    drawInteractionBubbles();
+
+    // 6. 繪製微風光影粒子
+    for (const pt of state.particles) {
+        ctx.fillStyle = pt.color;
+        ctx.fillRect(pt.x, pt.y, pt.size, pt.size);
+    }
+
+    ctx.restore();
+
+    // 7. 繪製半透明浮動搖桿
+    drawFloatingJoystick();
+
+    ctx.restore();
+}
+
+let lastTime = performance.now();
+function gameLoop(now) {
+    const dt = Math.min(0.05, (now - lastTime) / 1000);
+    lastTime = now;
+
+    update(dt);
+    render();
+    requestAnimationFrame(gameLoop);
+}
+
+window.onload = () => {
+    updateLocationAndHUD();
+    requestAnimationFrame(gameLoop);
+};
+</script>
+</body>
+</html>
