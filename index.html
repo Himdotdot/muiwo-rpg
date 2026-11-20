@@ -518,7 +518,7 @@ const pCtx = portraitCanvas.getContext('2d');
 // 梅窩海濱大世界：80 x 100 網格（依真實衛星圖濃縮）
 const MAP_COLS = 80;
 const MAP_ROWS = 100;
-const TILE_SIZE = 48;
+const TILE_SIZE = 32;   // 從 48 縮小約 33%，畫面一次能看到更多梅窩風景
 
 // 地形代碼定義：
 // 0: 海水與波光, 1: 沙灘/觀景台海邊, 2: 草地, 3: 濕地高草叢(25%遇水牛), 4: 石板路/行人道,
@@ -1888,7 +1888,7 @@ function update(dt) {
     if (state.isTransitioning) return;
 
     const p = state.player;
-    const speed = 195 * dt;
+    const speed = 300 * dt;
 
     if (p.isMoving) {
         const targetPx = p.targetGridX * TILE_SIZE;
@@ -1979,77 +1979,94 @@ function drawTile(gx, gy, terrain) {
     const wave = Math.sin(state.time * 3 + gx * 0.7 + gy * 0.5);
 
     if (terrain === 0) {
+        // 海水
         ctx.fillStyle = '#0284c7';
         ctx.fillRect(x, y, TILE_SIZE + 0.5, TILE_SIZE + 0.5);
-        ctx.fillStyle = 'rgba(186, 230, 253, 0.45)';
-        const offset = wave * 4;
-        ctx.fillRect(x + 8 + offset, y + 14, 18, 3);
-        ctx.fillRect(x + 20 - offset, y + 32, 14, 2.5);
+        ctx.fillStyle = 'rgba(186, 230, 253, 0.42)';
+        const offset = wave * 3;
+        ctx.fillRect(x + 5 + offset, y + 10, 12, 2);
+        ctx.fillRect(x + 14 - offset, y + 22, 10, 1.5);
     } else if (terrain === 1) {
+        // 沙灘
         ctx.fillStyle = '#fde68a';
         ctx.fillRect(x, y, TILE_SIZE + 0.5, TILE_SIZE + 0.5);
         ctx.fillStyle = '#f59e0b';
         if ((gx + gy) % 2 === 0) {
-            ctx.fillRect(x + 12, y + 16, 3, 2);
-            ctx.fillRect(x + 32, y + 34, 3, 2);
+            ctx.fillRect(x + 8, y + 11, 2, 1.5);
+            ctx.fillRect(x + 20, y + 22, 2, 1.5);
         }
     } else if (terrain === 2 || terrain === 3) {
-        ctx.fillStyle = (gx + gy) % 2 === 0 ? '#4ade80' : '#38d373';
+        // 草地（RPG Maker 經典雙色棋盤 + 小花點）
+        ctx.fillStyle = (gx + gy) % 2 === 0 ? '#4ade80' : '#34d399';
         ctx.fillRect(x, y, TILE_SIZE + 0.5, TILE_SIZE + 0.5);
 
-        if ((gx * 7 + gy * 13) % 7 === 0) {
+        // 細緻小花／草點
+        if ((gx * 7 + gy * 13) % 6 === 0) {
             ctx.fillStyle = '#fef08a';
-            ctx.fillRect(x + 14, y + 20, 4, 4);
+            ctx.fillRect(x + 9, y + 13, 2.5, 2.5);
+        }
+        if ((gx * 5 + gy * 11) % 9 === 0) {
+            ctx.fillStyle = '#86efac';
+            ctx.fillRect(x + 18, y + 8, 2, 2);
         }
 
+        // 高草叢（更細緻搖擺）
         if (terrain === 3) {
-            const sway = Math.sin(state.time * 2.8 + gx * 0.9 + gy * 0.6) * 3;
+            const sway = Math.sin(state.time * 2.8 + gx * 0.9 + gy * 0.6) * 2.2;
             ctx.fillStyle = '#15803d';
-            ctx.fillRect(x + 4, y + 18, TILE_SIZE - 8, TILE_SIZE - 20);
+            ctx.fillRect(x + 2, y + 12, TILE_SIZE - 4, TILE_SIZE - 14);
             ctx.fillStyle = '#166534';
-            for (let i = 0; i < 4; i++) {
-                const bx = x + 6 + i * 10;
+            for (let i = 0; i < 3; i++) {
+                const bx = x + 4 + i * 9;
                 ctx.beginPath();
-                ctx.moveTo(bx, y + 24);
-                ctx.lineTo(bx + 4 + sway, y + 6);
-                ctx.lineTo(bx + 8, y + 24);
+                ctx.moveTo(bx, y + 16);
+                ctx.lineTo(bx + 3 + sway, y + 4);
+                ctx.lineTo(bx + 6, y + 16);
                 ctx.fill();
             }
         }
     } else if (terrain === 4) {
+        // 石板路（帶邊緣陰影）
         ctx.fillStyle = '#cbd5e1';
         ctx.fillRect(x, y, TILE_SIZE + 0.5, TILE_SIZE + 0.5);
         ctx.strokeStyle = '#94a3b8';
         ctx.lineWidth = 1;
-        ctx.strokeRect(x + 2, y + 2, TILE_SIZE - 4, TILE_SIZE - 4);
+        ctx.strokeRect(x + 1.5, y + 1.5, TILE_SIZE - 3, TILE_SIZE - 3);
+        // 輕微內陰影
+        ctx.fillStyle = 'rgba(100, 116, 139, 0.15)';
+        ctx.fillRect(x + 2, y + TILE_SIZE - 5, TILE_SIZE - 4, 3);
     } else if (terrain === 5) {
+        // 山壁／護欄
         ctx.fillStyle = '#475569';
         ctx.fillRect(x, y, TILE_SIZE + 0.5, TILE_SIZE + 0.5);
         ctx.fillStyle = '#64748b';
-        ctx.fillRect(x + 4, y + 4, TILE_SIZE - 8, TILE_SIZE * 0.6);
+        ctx.fillRect(x + 3, y + 3, TILE_SIZE - 6, TILE_SIZE * 0.55);
         ctx.fillStyle = '#1e293b';
-        ctx.fillRect(x, y + TILE_SIZE * 0.72, TILE_SIZE, TILE_SIZE * 0.28);
+        ctx.fillRect(x, y + TILE_SIZE * 0.7, TILE_SIZE, TILE_SIZE * 0.3);
     } else if (terrain === 6) {
+        // 水景
         ctx.fillStyle = '#0ea5e9';
         ctx.fillRect(x, y, TILE_SIZE + 0.5, TILE_SIZE + 0.5);
-        ctx.fillStyle = 'rgba(224, 242, 254, 0.65)';
-        const ripple = Math.sin(state.time * 4 + gx + gy) * 3;
+        ctx.fillStyle = 'rgba(224, 242, 254, 0.6)';
+        const ripple = Math.sin(state.time * 4 + gx + gy) * 2;
         ctx.beginPath();
-        ctx.arc(x + 24, y + 24, 11 + ripple, 0, Math.PI * 2);
+        ctx.arc(x + 16, y + 16, 7 + ripple, 0, Math.PI * 2);
         ctx.fill();
     } else if (terrain === 7) {
+        // 木棧道
         ctx.fillStyle = '#92400e';
         ctx.fillRect(x, y, TILE_SIZE + 0.5, TILE_SIZE + 0.5);
         ctx.fillStyle = '#b45309';
-        for (let py = 2; py < TILE_SIZE; py += 12) {
-            ctx.fillRect(x + 2, y + py, TILE_SIZE - 4, 8);
+        for (let py = 1; py < TILE_SIZE; py += 8) {
+            ctx.fillRect(x + 1, y + py, TILE_SIZE - 2, 5);
         }
     } else if (terrain === 8) {
+        // 柏油路
         ctx.fillStyle = '#334155';
         ctx.fillRect(x, y, TILE_SIZE + 0.5, TILE_SIZE + 0.5);
         if (gx % 3 === 0 && gy % 4 === 0) {
-            ctx.fillStyle = 'rgba(250, 204, 21, 0.45)';
-            ctx.fillRect(x + 18, y + 22, 12, 3);
+            ctx.fillStyle = 'rgba(250, 204, 21, 0.4)';
+            ctx.fillRect(x + 12, y + 14, 8, 2);
         }
     }
 }
@@ -2127,42 +2144,52 @@ function drawBuilding(b) {
     const pw = b.w * TILE_SIZE;
     const ph = b.h * TILE_SIZE;
 
-    ctx.fillStyle = 'rgba(15, 23, 42, 0.35)';
-    ctx.fillRect(px + 8, py + 10, pw, ph);
+    // 柔和投影（RPG Maker 經典下方陰影）
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.32)';
+    ctx.beginPath();
+    ctx.ellipse(px + pw * 0.5 + 3, py + ph + 4, pw * 0.48, 7, 0, 0, Math.PI * 2);
+    ctx.fill();
 
-    const wallHeight = Math.max(36, ph * 0.45);
+    const wallHeight = Math.max(26, ph * 0.48);
 
+    // 牆身
     ctx.fillStyle = b.wallColor;
-    ctx.fillRect(px + 2, py + ph - wallHeight, pw - 4, wallHeight);
+    ctx.fillRect(px + 1, py + ph - wallHeight, pw - 2, wallHeight);
 
+    // 門
     ctx.fillStyle = '#1e293b';
-    ctx.fillRect(px + pw * 0.44, py + ph - wallHeight * 0.72, pw * 0.12, wallHeight * 0.72);
-    ctx.fillStyle = '#bae6fd';
-    ctx.fillRect(px + pw * 0.14, py + ph - wallHeight * 0.62, pw * 0.16, wallHeight * 0.38);
-    ctx.fillRect(px + pw * 0.70, py + ph - wallHeight * 0.62, pw * 0.16, wallHeight * 0.38);
+    ctx.fillRect(px + pw * 0.42, py + ph - wallHeight * 0.7, pw * 0.16, wallHeight * 0.7);
 
+    // 窗戶
+    ctx.fillStyle = '#bae6fd';
+    ctx.fillRect(px + pw * 0.12, py + ph - wallHeight * 0.58, pw * 0.15, wallHeight * 0.32);
+    ctx.fillRect(px + pw * 0.72, py + ph - wallHeight * 0.58, pw * 0.15, wallHeight * 0.32);
+
+    // 屋頂（帶輕微立體感）
     ctx.fillStyle = b.roofColor;
     ctx.beginPath();
-    ctx.moveTo(px - 4, py + ph - wallHeight + 2);
-    ctx.lineTo(px + 12, py - 10);
-    ctx.lineTo(px + pw - 12, py - 10);
-    ctx.lineTo(px + pw + 4, py + ph - wallHeight + 2);
+    ctx.moveTo(px - 3, py + ph - wallHeight + 1);
+    ctx.lineTo(px + 8, py - 7);
+    ctx.lineTo(px + pw - 8, py - 7);
+    ctx.lineTo(px + pw + 3, py + ph - wallHeight + 1);
     ctx.closePath();
     ctx.fill();
 
+    // 屋頂邊緣描邊
     ctx.strokeStyle = b.trimColor;
-    ctx.lineWidth = 3;
+    ctx.lineWidth = 2;
     ctx.stroke();
 
+    // 建築名稱標籤
     ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
     ctx.beginPath();
-    ctx.roundRect(px + 6, py + 4, pw - 12, 20, 6);
+    ctx.roundRect(px + 4, py + 2, pw - 8, 14, 4);
     ctx.fill();
 
     ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 11.5px "Noto Sans TC", sans-serif';
+    ctx.font = 'bold 9px "Noto Sans TC", sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText(b.name, px + pw / 2, py + 18);
+    ctx.fillText(b.name, px + pw / 2, py + 12);
 }
 
 /**
@@ -2255,32 +2282,32 @@ function drawProp(p) {
         ctx.fillRect(x + 6, y + 22, 4, 14);
         ctx.fillRect(x + TILE_SIZE - 10, y + 22, 4, 14);
     } else if (p.type === 'palm') {
-        ctx.fillStyle = 'rgba(0,0,0,0.25)';
+        ctx.fillStyle = 'rgba(0,0,0,0.22)';
         ctx.beginPath();
-        ctx.ellipse(x + 28, y + 40, 14, 6, 0, 0, Math.PI * 2);
+        ctx.ellipse(x + 16, y + 28, 10, 4, 0, 0, Math.PI * 2);
         ctx.fill();
         ctx.fillStyle = '#92400e';
-        ctx.fillRect(x + 21, y + 14, 6, 26);
+        ctx.fillRect(x + 13, y + 10, 4, 18);
         ctx.fillStyle = '#16a34a';
         ctx.beginPath();
-        ctx.ellipse(x + 14, y + 14, 14, 5, -0.3, 0, Math.PI * 2);
-        ctx.ellipse(x + 34, y + 14, 14, 5, 0.3, 0, Math.PI * 2);
-        ctx.ellipse(x + 24, y + 8, 12, 6, 0, 0, Math.PI * 2);
+        ctx.ellipse(x + 8, y + 10, 10, 3.5, -0.35, 0, Math.PI * 2);
+        ctx.ellipse(x + 22, y + 10, 10, 3.5, 0.35, 0, Math.PI * 2);
+        ctx.ellipse(x + 15, y + 5, 8, 4, 0, 0, Math.PI * 2);
         ctx.fill();
     } else if (p.type === 'tree') {
-        ctx.fillStyle = 'rgba(0,0,0,0.28)';
+        ctx.fillStyle = 'rgba(0,0,0,0.25)';
         ctx.beginPath();
-        ctx.ellipse(x + 26, y + 42, 18, 7, 0, 0, Math.PI * 2);
+        ctx.ellipse(x + 16, y + 28, 12, 5, 0, 0, Math.PI * 2);
         ctx.fill();
         ctx.fillStyle = '#78350f';
-        ctx.fillRect(x + 20, y + 24, 8, 18);
+        ctx.fillRect(x + 13, y + 16, 5, 12);
         ctx.fillStyle = '#15803d';
         ctx.beginPath();
-        ctx.arc(x + 24, y + 16, 18, 0, Math.PI * 2);
+        ctx.arc(x + 15, y + 11, 12, 0, Math.PI * 2);
         ctx.fill();
         ctx.fillStyle = '#22c55e';
         ctx.beginPath();
-        ctx.arc(x + 20, y + 12, 12, 0, Math.PI * 2);
+        ctx.arc(x + 12, y + 8, 8, 0, Math.PI * 2);
         ctx.fill();
     } else if (p.type === 'bikes') {
         for (let i = 0; i < 3; i++) {
